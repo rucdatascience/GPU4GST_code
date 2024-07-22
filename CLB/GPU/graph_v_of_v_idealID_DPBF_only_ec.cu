@@ -124,8 +124,10 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
         //grow
         numBlocks = ((int)input_graph[x].size() + threadsPerBlock - 1) / threadsPerBlock;
         grow<<< numBlocks, threadsPerBlock >>>(x,statu,input_graph,q);
+        cudaDeviceSynchronize();
         //merge
 		numBlocks = ((int)idp[statu].size() + threadsPerBlock - 1) / threadsPerBlock;
         merge<<< numBlocks, threadsPerBlock >>>(x,statu,q);
+        cudaDeviceSynchronize();
     }
 }
