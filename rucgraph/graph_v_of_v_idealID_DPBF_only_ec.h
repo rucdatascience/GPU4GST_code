@@ -8,7 +8,7 @@ time complexity: O( 4^|Gamma| + 3^|Gamma||V|+ 2^|Gamma|* (|E| + |V|*(|Gamma| + l
 #include <unordered_set>
 #include <unordered_map>
 #include <boost/heap/fibonacci_heap.hpp> 
-
+using namespace std;
 #pragma region
 struct graph_v_of_v_idealID_DPBF_min_node {
 	int v;
@@ -44,7 +44,7 @@ int graph_v_of_v_idealID_DPBF_vertex_group_set_ID(int vertex, graph_v_of_v_ideal
 	std::unordered_set<int>& cumpulsory_group_vertices) {
 
 	/*time complexity: O(|Gamma|); this function returns the maximum group set ID for a single vertex*/
-
+	// if group i have edge to v,v will give bit i value 1;
 	int ID = 0;
 	int pow_num = 0;
 	for (auto it = cumpulsory_group_vertices.begin(); it != cumpulsory_group_vertices.end(); it++) {
@@ -174,7 +174,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
 	int xxm = sizeof(graph_v_of_v_idealID_DPBF_min_node) + sizeof(graph_v_of_v_idealID_DPBF_tree_node);
 	for (int v = 0; v < N; v++) {
 		int group_set_ID_v = graph_v_of_v_idealID_DPBF_vertex_group_set_ID(v, group_graph, cumpulsory_group_vertices); /*time complexity: O(|Gamma|)*/
-		for (int p = 1; p <= group_set_ID_v; p++) { // p is non-empty; time complexity: O(2^|Gamma|)
+		for (int p = 1; p <= group_set_ID_v; p++) { // p is non-empty; time complexity: O(2^|Gamma|) //get all its subset ,which is required in next merge and grow steps
 			if ((p | group_set_ID_v) == group_set_ID_v) { // p represents a non-empty group set inside group_set_ID_v, including group_set_ID_v
 
 				/*T(v,p)*/
@@ -283,7 +283,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
 				cost_Tvp2 = trees[v][p2].cost;
 			}
 			int p1_cup_p2 = p1 + p2;
-			double cost_Tvp1_cup_p2;
+			double cost_Tvp1_cup_p2;//old value 
 			if (trees[v].count(p1_cup_p2) == 0) {
 				cost_Tvp1_cup_p2 = inf;
 			}

@@ -5,7 +5,7 @@
 
 
 graph_hash_of_mixed_weighted graph_v_of_v_idealID_to_graph_hash_of_mixed_weighted(graph_v_of_v_idealID& ideal_g) {
-
+	// with ideal vertex num 1~N,change idealID graph to hash graph
 	graph_hash_of_mixed_weighted hash_g;
 
 	int N = ideal_g.size();

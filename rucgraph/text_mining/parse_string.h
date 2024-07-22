@@ -1,4 +1,7 @@
 #pragma once
+#ifndef parsestring
+#define parsestring
+
 #include<vector>
 #include<string>
 
@@ -39,3 +42,4 @@ void example_parse_string() {
 	auto xx = parse_string(s, "gd");
 	std::cout << xx[0] << "|" << xx[1] << std::endl;
 }
+#endif 

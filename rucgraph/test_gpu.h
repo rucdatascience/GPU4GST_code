@@ -1,49 +1,9 @@
 #pragma once
 
-/*
-this is the DPBF algorithm in Ding, Bolin, et al. "Finding top-k min-cost connected trees in databases." 2007 IEEE 23rd International Conference on Data Engineering. IEEE, 2007.
 
-time complexity: O( 4^|Gamma| + 3^|Gamma||V|+ 2^|Gamma|* (|E| + |V|*(|Gamma| + log V)) )
-*/
-
-/*the following codes are for testing
-
----------------------------------------------------
-a cpp file (try.cpp) for running the following test code:
-----------------------------------------
-
-#include <iostream>
-#include <fstream>
-using namespace std;
-
-// header files in the Boost library: https://www.boost.org/
-#include <boost/random.hpp>
-boost::random::mt19937 boost_random_time_seed{ static_cast<std::uint32_t>(std::time(0)) };
-
-#include <build_in_progress/GST/test.h>
-
-
-int main()
-{
-	test_graph_v_of_v_idealID_DPBF_only_ec();
-}
-
-------------------------------------------------------------------------------------------
-Commends for running the above cpp file on Linux:
-
-g++ -std=c++17 -I/home/boost_1_75_0 -I/root/rucgraph try.cpp -lpthread -Ofast -o A
-./A
-rm A
-
-(optional to put the above commends in run.sh, and then use the comment: sh run.sh)
-
-
-*/
 
 #include <chrono>
 #include <queue>
-#include <unordered_set>
-#include <unordered_map>
 #include <boost/heap/fibonacci_heap.hpp> 
 #include <graph_hash_of_mixed_weighted/graph_hash_of_mixed_weighted.h>
 #include <graph_hash_of_mixed_weighted/common_algorithms/graph_hash_of_mixed_weighted_connected_components.h>
@@ -52,13 +12,13 @@ rm A
 #include <graph_hash_of_mixed_weighted_generate_random_groups_of_vertices.h>
 #include <graph_hash_of_mixed_weighted_save_for_GSTP.h>
 #include <graph_hash_of_mixed_weighted_read_for_GSTP.h>
-#include <graph_v_of_v_idealID/graph_v_of_v_idealID.h>
-#include <graph_hash_of_mixed_weighted_sum_of_nw_ec.h>
-#include <graph_v_of_v_idealID_DPBF_only_ec.h>
-#include <graph_v_of_v_idealID_PrunedDPPlusPlus.h>
+#include "graph_hash_of_mixed_weighted_sum_of_nw_ec.h"
+#include "graph_v_of_v_idealID_DPBF_only_ec.h"
+#include "graph_v_of_v_idealID_PrunedDPPlusPlus.h"
+#include "DPQ.cuh"
 
 
-bool this_is_a_feasible_solution(graph_hash_of_mixed_weighted& solu, graph_hash_of_mixed_weighted& group_graph,
+bool this_is_a_feasible_solution_gpu(graph_hash_of_mixed_weighted& solu, graph_hash_of_mixed_weighted& group_graph,
 	std::unordered_set<int>& group_vertices) {
 
 	/*time complexity O(|V_solu|+|E_solu|)*/
@@ -88,11 +48,11 @@ bool this_is_a_feasible_solution(graph_hash_of_mixed_weighted& solu, graph_hash_
 }
 
 
-void test_graph_v_of_v_idealID_DPBF_only_ec() {
+void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 	/*parameters*/
-	int iteration_times = 100;
-	int V = 1000, E = 5000, G = 5, g_size_min = 10, g_size_max = 50, precision = 3;
+	int iteration_times = 1;
+	int V = 50, E = 200, G = 4, g_size_min = 1, g_size_max = 3, precision = 2;
 	double ec_min = 0.001, ec_max = 1; // PrunedDP does not allow zero edge weight
 
 
@@ -113,8 +73,11 @@ void test_graph_v_of_v_idealID_DPBF_only_ec() {
 		graph_hash_of_mixed_weighted instance_graph, generated_group_graph;
 		if (generate_new_graph == 1) {
 			instance_graph = graph_hash_of_mixed_weighted_generate_random_connected_graph(V, E, 0, 0, ec_min, ec_max, precision);
+
 			graph_hash_of_mixed_weighted_generate_random_groups_of_vertices(G, g_size_min, g_size_max,
-				instance_graph, instance_graph.hash_of_vectors.size(), generated_group_vertices, generated_group_graph);
+				instance_graph, instance_graph.hash_of_vectors.size(), generated_group_vertices, generated_group_graph);//
+			
+			
 			graph_hash_of_mixed_weighted_save_for_GSTP("simple_iterative_tests.text", instance_graph,
 				generated_group_graph, generated_group_vertices, lambda);
 		}
@@ -122,7 +85,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec() {
 			graph_hash_of_mixed_weighted_read_for_GSTP("simple_iterative_tests.text", instance_graph,
 				generated_group_graph, generated_group_vertices, lambda);
 		}
-
+		
 		unordered_map<int, int> vertexID_old_to_new;
 		for (int mm = 0; mm < V; mm++) {
 			vertexID_old_to_new[mm] = mm;
@@ -132,12 +95,13 @@ void test_graph_v_of_v_idealID_DPBF_only_ec() {
 			vertexID_old_to_new[mm] = mm;
 		}
 		graph_v_of_v_idealID v_generated_group_graph = graph_hash_of_mixed_weighted_to_graph_v_of_v_idealID(generated_group_graph, vertexID_old_to_new);
-
+		CSR_graph csr_graph = toCSR(v_instance_graph);
+		cout<<"E:"<<csr_graph.E_all<<" v:"<<csr_graph.V<<endl;
 		/*graph_v_of_v_idealID_DPBF_only_ec*/
 		if (1) {
 			double RAM;
 			auto begin = std::chrono::high_resolution_clock::now();
-			graph_hash_of_mixed_weighted solu = graph_v_of_v_idealID_DPBF_only_ec(v_instance_graph, v_generated_group_graph, generated_group_vertices, RAM);
+			graph_hash_of_mixed_weighted solu = DPBF_GPU(csr_graph,generated_group_vertices,v_generated_group_graph,v_instance_graph);
 			auto end = std::chrono::high_resolution_clock::now();
 			double runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
 			time_DPBF_avg += (double)runningtime / iteration_times;
@@ -145,9 +109,10 @@ void test_graph_v_of_v_idealID_DPBF_only_ec() {
 			//graph_hash_of_mixed_weighted_print(solu);
 
 			double cost = graph_hash_of_mixed_weighted_sum_of_ec(solu);
+			cout<<"cost: "<<cost<<endl;
 			solution_cost_DPBF_sum += cost;
 
-			if (!this_is_a_feasible_solution(solu, generated_group_graph, generated_group_vertices)) {
+			if (!this_is_a_feasible_solution_gpu(solu, generated_group_graph, generated_group_vertices)) {
 				cout << "Error: graph_v_of_v_idealID_DPBF_only_ec is not feasible!" << endl;
 				graph_hash_of_mixed_weighted_print(solu);
 				exit(1);
@@ -169,7 +134,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec() {
 			double cost = graph_hash_of_mixed_weighted_sum_of_ec(solu);
 			solution_cost_PrunedDPPlusPlus_sum = solution_cost_PrunedDPPlusPlus_sum + cost;
 
-			if (!this_is_a_feasible_solution(solu, generated_group_graph, generated_group_vertices)) {
+			if (!this_is_a_feasible_solution_gpu(solu, generated_group_graph, generated_group_vertices)) {
 				cout << "Error: graph_v_of_v_idealID_DPBF_only_ec is not feasible!" << endl;
 				graph_hash_of_mixed_weighted_print(solu);
 				exit(1);

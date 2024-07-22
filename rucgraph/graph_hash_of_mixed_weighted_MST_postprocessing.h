@@ -2,8 +2,8 @@
 #pragma once
 
 
-#include <graph_hash_of_mixed_weighted_minimum_spanning_tree.h>
-#include <graph_hash_of_mixed_weighted_extract_subgraph_for_a_hash_of_vertices.h> 
+#include "graph_hash_of_mixed_weighted_minimum_spanning_tree.h"
+#include "graph_hash_of_mixed_weighted_extract_subgraph_for_a_hash_of_vertices.h"
 
 
 

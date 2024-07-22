@@ -9,9 +9,9 @@ Li, Rong-Hua, Lu Qin, Jeffrey Xu Yu, and Rui Mao. "Efficient and progressive gro
 #include <unordered_map>
 #include <boost/heap/fibonacci_heap.hpp> 
 
-#include <graph_hash_of_mixed_weighted_MST_postprocessing.h>
+#include "graph_hash_of_mixed_weighted_MST_postprocessing.h"
 #include <graph_v_of_v_idealID/common_algorithms/graph_v_of_v_idealID_shortest_paths.h>
-#include <graph_v_of_v_idealID_save_for_GSTP.h>
+#include "graph_v_of_v_idealID_save_for_GSTP.h"
 
 #pragma region
 pair<vector<int>, vector<float>> graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs_to_g(graph_v_of_v_idealID& group_graph, graph_v_of_v_idealID& input_graph, int g_vertex) {
@@ -210,7 +210,9 @@ int graph_hash_of_mixed_weighted_PrunedDPPlusPlus_edge_weighted_vertex_group_ver
 		}
 		pow_num++;
 	}
+	return 0;
 }
+
 #pragma endregion graph_hash_of_mixed_weighted_PrunedDPPlusPlus_edge_weighted_vertex_group_vertex_2_group_set_ID
 
 #pragma region

@@ -7,7 +7,7 @@
 #include <text_mining/print_items.h>
 #include <graph_hash_of_mixed_weighted/graph_hash_of_mixed_weighted_binary_operations.h>
 
-class graph_hash_of_mixed_weighted_vectors {
+class graph_hash_of_mixed_weighted_vectors {//for one vertex
 public:
 	double vertex_weight; // weight of this vertex; only in vectors, not in hashs
 	std::vector<std::pair<int, double>> adj_vertices; // adjacenct vertices and weights of edges; ordered from small to large
@@ -149,8 +149,8 @@ you can change turn on and off values in your own code to find the faster speed,
  this is like growing and shrinking the hash table; the armotized costs for maintaining this turn on turn off operation is negalatable in a binary way,
  see "Lecture 9: Table Doubling, Karp-Rabin" in "Introduction to Algorithms"
 */
-int graph_hash_of_mixed_weighted_turn_on_value = 1e2; // default values
-int graph_hash_of_mixed_weighted_turn_off_value = 10;
+inline int graph_hash_of_mixed_weighted_turn_on_value = 1e2; // default values
+inline int graph_hash_of_mixed_weighted_turn_off_value = 10;
 
 
 
@@ -202,12 +202,12 @@ for (auto it1 = movie_links.hash_of_vectors.begin(); it1 != movie_links.hash_of_
 
 
 
-bool graph_hash_of_mixed_weighted_compare(const std::pair<int, double>&i, const std::pair<int, double>&j)
+inline bool graph_hash_of_mixed_weighted_compare(const std::pair<int, double>&i, const std::pair<int, double>&j)
 {
 	return i.first < j.first;  // < is from small to big; > is from big to small.  sort by the first item of pair<int, double>
 } // for graph_hash_of_mixed_weighted_turn_off_hash
 
-void graph_hash_of_mixed_weighted_turn_off_hash(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline void graph_hash_of_mixed_weighted_turn_off_hash(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function turns off a vertex from hash_of_hashs;
 	time complexity O(sort_complexity of graph_hash_of_mixed_weighted_turn_off_value),
@@ -226,7 +226,7 @@ void graph_hash_of_mixed_weighted_turn_off_hash(graph_hash_of_mixed_weighted& in
 	input_graph.hash_of_hashs.erase(vertex); // remove vertex from hash_of_hashs
 }
 
-void graph_hash_of_mixed_weighted_turn_on_hash(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline void graph_hash_of_mixed_weighted_turn_on_hash(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function turns on a vertex in hash_of_hashs;
 	time complexity O(graph_hash_of_mixed_weighted_turn_on_value),
@@ -249,7 +249,7 @@ void graph_hash_of_mixed_weighted_turn_on_hash(graph_hash_of_mixed_weighted& inp
 
 
 
-void graph_hash_of_mixed_weighted_add_vertex(graph_hash_of_mixed_weighted& input_graph, int vertex, double weight) {
+inline void graph_hash_of_mixed_weighted_add_vertex(graph_hash_of_mixed_weighted& input_graph, int vertex, double weight) {
 
 	/*time complexity O(1);
 
@@ -261,7 +261,7 @@ void graph_hash_of_mixed_weighted_add_vertex(graph_hash_of_mixed_weighted& input
 }
 
 
-void graph_hash_of_mixed_weighted_remove_vertex(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline void graph_hash_of_mixed_weighted_remove_vertex(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function removes a vertex and its adjacent edges;
 	time complexity O(graph_hash_of_mixed_weighted_turn_on_value * |adj_vertices|) in the worst case,
@@ -314,7 +314,7 @@ void graph_hash_of_mixed_weighted_remove_vertex(graph_hash_of_mixed_weighted& in
 }
 
 
-bool graph_hash_of_mixed_weighted_contain_vertex(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline bool graph_hash_of_mixed_weighted_contain_vertex(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function checks whether a vertex/key is in input_graph or not;
 	time complexity O(1)*/
@@ -329,7 +329,7 @@ bool graph_hash_of_mixed_weighted_contain_vertex(graph_hash_of_mixed_weighted& i
 }
 
 
-void graph_hash_of_mixed_weighted_add_edge(graph_hash_of_mixed_weighted& input_graph, int e1, int e2, double ec) {
+inline void graph_hash_of_mixed_weighted_add_edge(graph_hash_of_mixed_weighted& input_graph, int e1, int e2, double ec) {
 
 	/*this function adds a weighted edge via binary search,
 	and may add e1 and e2 into input_graph if they are new vertices;
@@ -372,7 +372,7 @@ void graph_hash_of_mixed_weighted_add_edge(graph_hash_of_mixed_weighted& input_g
 }
 
 
-void graph_hash_of_mixed_weighted_edge_weight_plus_value(graph_hash_of_mixed_weighted& input_graph, int e1, int e2, double value) {
+inline void graph_hash_of_mixed_weighted_edge_weight_plus_value(graph_hash_of_mixed_weighted& input_graph, int e1, int e2, double value) {
 
 	/*this function plus a value to an edge weight;
 	we assume that this edge is in the graph, otherwise
@@ -449,7 +449,7 @@ void graph_hash_of_mixed_weighted_edge_weight_plus_value(graph_hash_of_mixed_wei
 }
 
 
-double graph_hash_of_mixed_weighted_edge_weight(graph_hash_of_mixed_weighted& input_graph, int v1, int v2) {
+inline double graph_hash_of_mixed_weighted_edge_weight(graph_hash_of_mixed_weighted& input_graph, int v1, int v2) {
 
 	/*this function return an edge weight; we assume that this edge is in the graph, otherwise large value is returned;
 	time complexity O(graph_hash_of_mixed_weighted_turn_on_value), which is O(1)*/
@@ -494,7 +494,7 @@ double graph_hash_of_mixed_weighted_edge_weight(graph_hash_of_mixed_weighted& in
 	}
 }
 
-double graph_hash_of_mixed_weighted_smallest_adj_edge_weight(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline double graph_hash_of_mixed_weighted_smallest_adj_edge_weight(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	double smallest_adj_ec = INT_MAX;
 
@@ -520,7 +520,7 @@ double graph_hash_of_mixed_weighted_smallest_adj_edge_weight(graph_hash_of_mixed
 
 }
 
-double graph_hash_of_mixed_weighted_total_adj_edge_weight(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline double graph_hash_of_mixed_weighted_total_adj_edge_weight(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	double total_adj_ec = 0;
 
@@ -542,7 +542,7 @@ double graph_hash_of_mixed_weighted_total_adj_edge_weight(graph_hash_of_mixed_we
 
 }
 
-bool graph_hash_of_mixed_weighted_contain_edge(graph_hash_of_mixed_weighted& input_graph, int v1, int v2) {
+inline bool graph_hash_of_mixed_weighted_contain_edge(graph_hash_of_mixed_weighted& input_graph, int v1, int v2) {
 
 	/*this function checks whether an edge is in input_graph or not;
 	time complexity O(log graph_hash_of_mixed_weighted_turn_on_value), which is O(1)*/
@@ -570,7 +570,7 @@ bool graph_hash_of_mixed_weighted_contain_edge(graph_hash_of_mixed_weighted& inp
 	}
 }
 
-void graph_hash_of_mixed_weighted_remove_edge_and_isolated_vertices(graph_hash_of_mixed_weighted& input_graph, int e1, int e2) {
+inline void graph_hash_of_mixed_weighted_remove_edge_and_isolated_vertices(graph_hash_of_mixed_weighted& input_graph, int e1, int e2) {
 
 	/*this function removes an edge, and may remove e1 and e2 if they are isolated;
 	time complexity O(graph_hash_of_mixed_weighted_turn_on_value), which is O(1)*/
@@ -610,7 +610,7 @@ void graph_hash_of_mixed_weighted_remove_edge_and_isolated_vertices(graph_hash_o
 	}
 }
 
-void graph_hash_of_mixed_weighted_remove_edge_but_not_isolated_vertices(graph_hash_of_mixed_weighted& input_graph, int e1, int e2) {
+inline void graph_hash_of_mixed_weighted_remove_edge_but_not_isolated_vertices(graph_hash_of_mixed_weighted& input_graph, int e1, int e2) {
 
 	/*this function removes an edge, and does not remove e1 and e2 if they are isolated;
 	time complexity O(graph_hash_of_mixed_weighted_turn_on_value), which is O(1)*/
@@ -647,14 +647,14 @@ void graph_hash_of_mixed_weighted_remove_edge_but_not_isolated_vertices(graph_ha
 
 
 
-graph_hash_of_mixed_weighted graph_hash_of_mixed_weighted_copy_graph(graph_hash_of_mixed_weighted& input_graph) {
+inline graph_hash_of_mixed_weighted graph_hash_of_mixed_weighted_copy_graph(graph_hash_of_mixed_weighted& input_graph) {
 
 	return input_graph;
 
 }
 
 
-int graph_hash_of_mixed_weighted_num_vertices(graph_hash_of_mixed_weighted& input_graph) {
+inline int graph_hash_of_mixed_weighted_num_vertices(graph_hash_of_mixed_weighted& input_graph) {
 
 	/*time complexity O(1)*/
 
@@ -663,7 +663,7 @@ int graph_hash_of_mixed_weighted_num_vertices(graph_hash_of_mixed_weighted& inpu
 }
 
 
-long long int graph_hash_of_mixed_weighted_num_edges(graph_hash_of_mixed_weighted& input_graph) {
+inline long long int graph_hash_of_mixed_weighted_num_edges(graph_hash_of_mixed_weighted& input_graph) {
 
 	/*time complexity O(|V|)*/
 
@@ -684,7 +684,7 @@ long long int graph_hash_of_mixed_weighted_num_edges(graph_hash_of_mixed_weighte
 }
 
 
-double graph_hash_of_mixed_weighted_total_RAM_MB(graph_hash_of_mixed_weighted& g) {
+inline double graph_hash_of_mixed_weighted_total_RAM_MB(graph_hash_of_mixed_weighted& g) {
 
 	/*
 	we assume that the edge weight type is float; and the structure is vector of vectors (only edge weighted)
@@ -696,7 +696,7 @@ double graph_hash_of_mixed_weighted_total_RAM_MB(graph_hash_of_mixed_weighted& g
 }
 
 
-std::list<int> graph_hash_of_mixed_weighted_adjacent_vertices(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline std::list<int> graph_hash_of_mixed_weighted_adjacent_vertices(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function returns the adjacent vertices of the input vertex;
 	time complexity O(degree of vertex), which is O(|V|) in the worst case*/
@@ -721,7 +721,7 @@ std::list<int> graph_hash_of_mixed_weighted_adjacent_vertices(graph_hash_of_mixe
 }
 
 
-std::list<std::pair<int, double>> graph_hash_of_mixed_weighted_adjacent_vertices_and_weights(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline std::list<std::pair<int, double>> graph_hash_of_mixed_weighted_adjacent_vertices_and_weights(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function returns the adjacent vertices of the input vertex;
 	time complexity O(degree of vertex), which is O(|V|) in the worst case*/
@@ -746,7 +746,7 @@ std::list<std::pair<int, double>> graph_hash_of_mixed_weighted_adjacent_vertices
 }
 
 
-int graph_hash_of_mixed_weighted_adjacent_vertices_size(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline int graph_hash_of_mixed_weighted_adjacent_vertices_size(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function returns the size of adjacent vertices of the input vertex;
 	time complexity O(1)*/
@@ -762,7 +762,7 @@ int graph_hash_of_mixed_weighted_adjacent_vertices_size(graph_hash_of_mixed_weig
 }
 
 
-int graph_hash_of_mixed_weighted_degree(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline int graph_hash_of_mixed_weighted_degree(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*time complexity O(1)*/
 
@@ -780,7 +780,7 @@ int graph_hash_of_mixed_weighted_degree(graph_hash_of_mixed_weighted& input_grap
 }
 
 
-int graph_hash_of_mixed_weighted_vertex_list_ID(graph_hash_of_mixed_weighted& input_graph, int vertex) {
+inline int graph_hash_of_mixed_weighted_vertex_list_ID(graph_hash_of_mixed_weighted& input_graph, int vertex) {
 
 	/*this function returns the ID of the hash that corresponds to the vertex;
 	time complexity O(|V|)*/
@@ -795,7 +795,7 @@ int graph_hash_of_mixed_weighted_vertex_list_ID(graph_hash_of_mixed_weighted& in
 }
 
 
-void graph_hash_of_mixed_weighted_print(graph_hash_of_mixed_weighted& input_graph) {
+inline void graph_hash_of_mixed_weighted_print(graph_hash_of_mixed_weighted& input_graph) {
 
 	/*this function prints the whole graph_hash_of_mixed_weighted*/
 
@@ -841,9 +841,8 @@ void graph_hash_of_mixed_weighted_print(graph_hash_of_mixed_weighted& input_grap
 }
 
 
-void graph_hash_of_mixed_weighted_print_size(graph_hash_of_mixed_weighted& input_graph) {
+inline void graph_hash_of_mixed_weighted_print_size(graph_hash_of_mixed_weighted& input_graph) {
 
-	int num = 0;
 	//std::cout << '\n';
 	std::cout << "graph_hash_of_mixed_weighted_print_size: |V|=" << input_graph.hash_of_vectors.size() <<
 		" |E|=" << graph_hash_of_mixed_weighted_num_edges(input_graph) << std::endl;
@@ -872,7 +871,7 @@ int main()
 */
 
 
-void test_graph_hash_of_mixed_weighted() {
+inline void test_graph_hash_of_mixed_weighted() {
 
 	graph_hash_of_mixed_weighted g;
 
@@ -927,7 +926,7 @@ void test_graph_hash_of_mixed_weighted() {
 
 }
 
-void graph_hash_of_mixed_weighted_example() {
+inline void graph_hash_of_mixed_weighted_example() {
 
 	/*
 	Create a complete graph of 10 nodes

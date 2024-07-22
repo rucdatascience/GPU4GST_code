@@ -1,6 +1,8 @@
 #pragma once
 #include<vector>
 #include<iostream>
+#ifndef printitem
+#define printitem
 
 
 
@@ -31,7 +33,7 @@ print_vector_v1 suits
 vector<int>, vector<double>, vector<string>
 */
 template <typename T> 
-void print_vector_v1(std::vector<T>& input_vector) {
+inline void print_vector_v1(std::vector<T>& input_vector) {
 
 	std::cout << "print_vector_v1:" << std::endl;
 	for (int i = 0; i < input_vector.size(); i++) {
@@ -40,7 +42,7 @@ void print_vector_v1(std::vector<T>& input_vector) {
 
 }
 
-void print_vector_pair_int(std::vector<std::pair<int, int>>& input_vector) {
+inline void print_vector_pair_int(std::vector<std::pair<int, int>>& input_vector) {
 
 	std::cout << "print_vector_pair_int:" << std::endl;
 	for (int i = 0; i < input_vector.size(); i++) {
@@ -57,7 +59,7 @@ void print_vector_pair_int(std::vector<std::pair<int, int>>& input_vector) {
 
 // list 
 #include <list>
-void print_list_int(std::list<int>& input_list) {
+inline void print_list_int(std::list<int>& input_list) {
 
 	std::cout << "print_list_int:" << std::endl;
 	for (auto i = input_list.begin(); i != input_list.end(); i++) {
@@ -85,7 +87,7 @@ print_vector_v1 suits
 unordered_set<int>, unordered_set<double>, unordered_set<string>
 */
 template <typename T>
-void print_unordered_set_v1(std::unordered_set<T>& input_set) {
+inline void print_unordered_set_v1(std::unordered_set<T>& input_set) {
 
 	std::cout << "print_unordered_set_v1:" << std::endl;
 	for (auto it = input_set.begin(); it != input_set.end(); it++) {
@@ -103,7 +105,7 @@ void print_unordered_set_v1(std::unordered_set<T>& input_set) {
 
 #include <unordered_map>
 
-void print_unordered_map_string_int(std::unordered_map<std::string, int>& input_map) {
+inline void print_unordered_map_string_int(std::unordered_map<std::string, int>& input_map) {
 
 	std::cout << "print_unordered_map_string_int:" << std::endl;
 	std::cout << "size(): " << input_map.size() << std::endl;
@@ -113,7 +115,7 @@ void print_unordered_map_string_int(std::unordered_map<std::string, int>& input_
 	std::cout << "print_unordered_set_int END" << std::endl;
 }
 
-void print_unordered_map_string_double(std::unordered_map<std::string, double>& input_map) {
+inline void print_unordered_map_string_double(std::unordered_map<std::string, double>& input_map) {
 
 	std::cout << "print_unordered_map_string_int:" << std::endl;
 	std::cout << "size(): " << input_map.size() << std::endl;
@@ -124,7 +126,7 @@ void print_unordered_map_string_double(std::unordered_map<std::string, double>& 
 }
 
 
-void print_unordered_map_int_string(std::unordered_map<int, std::string>& input_map) {
+inline void print_unordered_map_int_string(std::unordered_map<int, std::string>& input_map) {
 
 	std::cout << "print_unordered_map_int_string:" << std::endl;
 	std::cout << "size(): " << input_map.size() << std::endl;
@@ -134,7 +136,7 @@ void print_unordered_map_int_string(std::unordered_map<int, std::string>& input_
 	std::cout << "print_unordered_map_int_string END" << std::endl;
 }
 
-void print_unordered_map_int_int(std::unordered_map<int, int>& input_map) {
+inline void print_unordered_map_int_int(std::unordered_map<int, int>& input_map) {
 
 	std::cout << "print_unordered_map_int_int:" << std::endl;
 	std::cout << "size(): " << input_map.size() << std::endl;
@@ -145,7 +147,7 @@ void print_unordered_map_int_int(std::unordered_map<int, int>& input_map) {
 }
 
 
-void print_unordered_map_int_double(std::unordered_map<int, double>& input_map) {
+inline void print_unordered_map_int_double(std::unordered_map<int, double>& input_map) {
 
 	std::cout << "print_unordered_map_int_double:" << std::endl;
 	std::cout << "size(): " << input_map.size() << std::endl;
@@ -154,3 +156,4 @@ void print_unordered_map_int_double(std::unordered_map<int, double>& input_map) 
 	}
 	std::cout << "print_unordered_map_int_double END" << std::endl;
 }
+#endif

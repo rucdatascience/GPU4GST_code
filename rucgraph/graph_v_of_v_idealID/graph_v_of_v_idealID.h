@@ -63,7 +63,7 @@ int size = g.size();
 */
 
 
-void graph_v_of_v_idealID_add_edge(graph_v_of_v_idealID& g, int e1, int e2, double ec) {
+inline void graph_v_of_v_idealID_add_edge(graph_v_of_v_idealID& g, int e1, int e2, double ec) {
 
 	/*we assume that the size of g is larger than e1 or e2;
 	 this function can update edge cost; there will be no redundent edge*/
@@ -81,7 +81,7 @@ void graph_v_of_v_idealID_add_edge(graph_v_of_v_idealID& g, int e1, int e2, doub
 
 }
 
-void graph_v_of_v_idealID_remove_edge(graph_v_of_v_idealID& g, int e1, int e2) {
+inline void graph_v_of_v_idealID_remove_edge(graph_v_of_v_idealID& g, int e1, int e2) {
 
 	/*we assume that the size of g is larger than e1 or e2*/
 	 /*
@@ -95,7 +95,7 @@ void graph_v_of_v_idealID_remove_edge(graph_v_of_v_idealID& g, int e1, int e2) {
 
 }
 
-void graph_v_of_v_idealID_remove_all_adjacent_edges(graph_v_of_v_idealID& g, int v) {
+inline void graph_v_of_v_idealID_remove_all_adjacent_edges(graph_v_of_v_idealID& g, int v) {
 
 	/*
 	 */
@@ -108,7 +108,7 @@ void graph_v_of_v_idealID_remove_all_adjacent_edges(graph_v_of_v_idealID& g, int
 
 }
 
-bool graph_v_of_v_idealID_contain_edge(graph_v_of_v_idealID& g, int e1, int e2) {
+inline bool graph_v_of_v_idealID_contain_edge(graph_v_of_v_idealID& g, int e1, int e2) {
 
 	/*
 	Return true if graph contain edge (e1,e2)
@@ -119,7 +119,7 @@ bool graph_v_of_v_idealID_contain_edge(graph_v_of_v_idealID& g, int e1, int e2) 
 
 }
 
-double graph_v_of_v_idealID_edge_weight(graph_v_of_v_idealID& g, int e1, int e2) {
+inline double graph_v_of_v_idealID_edge_weight(graph_v_of_v_idealID& g, int e1, int e2) {
 
 	/*
 	Return the weight of edge (e1,e2)
@@ -131,7 +131,7 @@ double graph_v_of_v_idealID_edge_weight(graph_v_of_v_idealID& g, int e1, int e2)
 
 }
 
-double graph_v_of_v_idealID_smallest_adj_edge_weight(graph_v_of_v_idealID& input_graph, int vertex) {
+inline double graph_v_of_v_idealID_smallest_adj_edge_weight(graph_v_of_v_idealID& input_graph, int vertex) {
 
 	/*
 	Return the least weight edge from point vertex
@@ -152,7 +152,7 @@ double graph_v_of_v_idealID_smallest_adj_edge_weight(graph_v_of_v_idealID& input
 
 }
 
-long long int graph_v_of_v_idealID_total_edge_num(graph_v_of_v_idealID& g) {
+inline long long int graph_v_of_v_idealID_total_edge_num(graph_v_of_v_idealID& g) {
 
 	/*
 	Returns the number of edges in the figure
@@ -169,7 +169,7 @@ long long int graph_v_of_v_idealID_total_edge_num(graph_v_of_v_idealID& g) {
 
 }
 
-double graph_v_of_v_idealID_total_RAM_MB(graph_v_of_v_idealID& g) {
+inline double graph_v_of_v_idealID_total_RAM_MB(graph_v_of_v_idealID& g) {
 
 	/*
 	we assume that the edge weight type is float
@@ -180,7 +180,7 @@ double graph_v_of_v_idealID_total_RAM_MB(graph_v_of_v_idealID& g) {
 	return bit_num / 1024 / 1024;
 }
 
-void graph_v_of_v_idealID_print(graph_v_of_v_idealID& g) {
+inline void graph_v_of_v_idealID_print(graph_v_of_v_idealID& g) {
 
 	std::cout << "graph_v_of_v_idealID_print:" << std::endl;
 	int size = g.size();
@@ -196,7 +196,7 @@ void graph_v_of_v_idealID_print(graph_v_of_v_idealID& g) {
 
 }
 
-bool graph_v_of_v_idealID_check_sort(graph_v_of_v_idealID& g) {
+inline bool graph_v_of_v_idealID_check_sort(graph_v_of_v_idealID& g) {
 
 	/*this function checks whether adjacency lists are sorted*/
 
@@ -235,7 +235,7 @@ int main()
 */
 
 
-void test_graph_v_of_v_idealID() {
+inline void test_graph_v_of_v_idealID() {
 
 	int N = 5;
 	graph_v_of_v_idealID g(N);
@@ -251,7 +251,7 @@ void test_graph_v_of_v_idealID() {
 }
 
 
-void graph_v_of_v_idealID_example() {
+inline void graph_v_of_v_idealID_example() {
 
 	/*
 	Create a complete graph of 10 nodes

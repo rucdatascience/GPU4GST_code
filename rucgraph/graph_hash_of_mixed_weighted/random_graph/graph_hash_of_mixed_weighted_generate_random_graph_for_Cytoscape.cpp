@@ -1,4 +1,5 @@
-﻿#include <iostream>
+﻿#pragma once
+#include <iostream>
 #include <chrono>
 #include <fstream>
 using namespace std;

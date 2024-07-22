@@ -17,30 +17,31 @@ void graph_hash_of_mixed_weighted_generate_random_groups_of_vertices(int G, int 
 	std::vector<int> all_v;
 	for (auto it = input_graph.hash_of_vectors.begin(); it != input_graph.hash_of_vectors.end(); it++) {
 		int v = it->first;
-		graph_hash_of_mixed_weighted_add_vertex(generated_group_graph, v, 0);
+		graph_hash_of_mixed_weighted_add_vertex(generated_group_graph, v, 0);// have same v
 		all_v.push_back(v);
 	}
 
-
+ 
 	/*add groups*/
 	/*time complexity: O(|G||V|)*/
 	int add_group_num = 0;
 	while (add_group_num < G) {
 		int group_size = dist(gen); // generate int random number
 		std::vector<int> to_be_linked_v = all_v;
-		std::vector<int> linked_vertices;
+		std::vector<int> linked_vertices;//enlarge linked size until it become enough;
 		while (linked_vertices.size() < group_size) {
 			boost::random::uniform_int_distribution<> dist2{ 0, (int)(to_be_linked_v.size() - 1) };
-			int randID = dist2(gen);
-			linked_vertices.insert(linked_vertices.end(), to_be_linked_v[randID]);
-			to_be_linked_v.erase(to_be_linked_v.begin() + randID);
+			int randID = dist2(gen);//choose from to be linked
+			linked_vertices.insert(linked_vertices.end(), to_be_linked_v[randID]);//add vertex to group
+			to_be_linked_v.erase(to_be_linked_v.begin() + randID);//delete vertex from to_be_linked
 		}
 
 		// add this group
-		int group_vertex = group_vertex_start_ID + add_group_num;
+		int group_vertex = group_vertex_start_ID + add_group_num;//group insert after vertexs;
 		generated_group_vertices.insert(group_vertex);
 		for (int j = 0; j < linked_vertices.size(); j++) {
 			graph_hash_of_mixed_weighted_add_edge(generated_group_graph, linked_vertices[j], group_vertex, 1);
+			//edge between group vertex(stands for group) and linked_vertex
 		}
 
 		add_group_num++;
