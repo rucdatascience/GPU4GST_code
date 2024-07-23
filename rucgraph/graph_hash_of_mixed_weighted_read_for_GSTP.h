@@ -5,7 +5,7 @@
 
 void graph_hash_of_mixed_weighted_read_for_GSTP(std::string instance_name,
 	graph_hash_of_mixed_weighted& input_graph, graph_hash_of_mixed_weighted& group_graph,
-	std::unordered_set<int>& group_vertices, double& lambda) {
+	std::unordered_set<int>& group_vertices, int & lambda) {
 
 	input_graph.clear();
 	group_graph.clear();
@@ -23,27 +23,27 @@ void graph_hash_of_mixed_weighted_read_for_GSTP(std::string instance_name,
 				// when it's equal, compare returns 0
 			{
 				int v = std::stoi(Parsed_content[2]);
-				double nw = std::stod(Parsed_content[3]);
+				int  nw = std::stod(Parsed_content[3]);
 				graph_hash_of_mixed_weighted_add_vertex(input_graph, v, nw);
 			}
 			else if (!Parsed_content[0].compare("input_graph") && !Parsed_content[1].compare("Edge"))
 			{
 				int v1 = std::stoi(Parsed_content[2]);
 				int v2 = std::stoi(Parsed_content[3]);
-				double ec = std::stod(Parsed_content[4]);
+				int  ec = std::stod(Parsed_content[4]);
 				graph_hash_of_mixed_weighted_add_edge(input_graph, v1, v2, ec);
 			}
 			else if (!Parsed_content[0].compare("group_graph") && !Parsed_content[1].compare("Vertex"))
 			{
 				int v = std::stoi(Parsed_content[2]);
-				double nw = std::stod(Parsed_content[3]);
+				int  nw = std::stod(Parsed_content[3]);
 				graph_hash_of_mixed_weighted_add_vertex(group_graph, v, nw);
 			}
 			else if (!Parsed_content[0].compare("group_graph") && !Parsed_content[1].compare("Edge"))
 			{
 				int v1 = std::stoi(Parsed_content[2]);
 				int v2 = std::stoi(Parsed_content[3]);
-				double ec = std::stod(Parsed_content[4]);
+				int  ec = std::stod(Parsed_content[4]);
 				graph_hash_of_mixed_weighted_add_edge(group_graph, v1, v2, ec);
 			}
 			else if (!Parsed_content[0].compare("group_vertices"))

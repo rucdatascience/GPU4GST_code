@@ -16,9 +16,9 @@ public:
         And Neighbor_start_pointers[V] = Edges.size() = Edge_weights.size() = the total number of edges.
     */
     std::vector<int> INs_Edges, OUTs_Edges, all_Edges;                              // Edges[Neighbor_start_pointers[i]] is the start of Neighbor_sizes[i] neighbor IDs
-    std::vector<double> INs_Edge_weights, OUTs_Edge_weights, ALL_Edge_weights; // Edge_weights[Neighbor_start_pointers[i]] is the start of Neighbor_sizes[i] edge weights
+    std::vector<int> INs_Edge_weights, OUTs_Edge_weights, ALL_Edge_weights; // Edge_weights[Neighbor_start_pointers[i]] is the start of Neighbor_sizes[i] edge weights
     int *in_pointer, *out_pointer, *in_edge, *out_edge, *all_pointer, *all_edge;
-    double *in_edge_weight, *out_edge_weight, *all_edge_weight;
+    int *in_edge_weight, *out_edge_weight, *all_edge_weight;
     int E_all=0, V;
 };
 
@@ -54,10 +54,10 @@ inline CSR_graph toCSR(graph_v_of_v_idealID graph)
 
     cudaMallocManaged(&ARRAY.all_pointer, (V + 1) * sizeof(int));
     cudaMallocManaged(&ARRAY.all_edge, E_all * sizeof(int));
-    cudaMallocManaged(&ARRAY.all_edge_weight, E_all * sizeof(double));
+    cudaMallocManaged(&ARRAY.all_edge_weight, E_all * sizeof(int));
 
     cudaMemcpy(ARRAY.all_pointer, ARRAY.ALL_start_pointers.data(), (V + 1) * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(ARRAY.all_edge, ARRAY.all_Edges.data(), E_all * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(ARRAY.all_edge_weight, ARRAY.ALL_Edge_weights.data(), E_all * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(ARRAY.all_edge_weight, ARRAY.ALL_Edge_weights.data(), E_all * sizeof(int), cudaMemcpyHostToDevice);
     return ARRAY;
 }

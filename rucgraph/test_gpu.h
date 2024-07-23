@@ -52,12 +52,12 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 	/*parameters*/
 	int iteration_times = 1;
-	int V = 50, E = 200, G = 4, g_size_min = 1, g_size_max = 3, precision = 2;
-	double ec_min = 0.001, ec_max = 1; // PrunedDP does not allow zero edge weight
+	int V = 1000, E = 3000, G = 4, g_size_min = 1, g_size_max = 3, precision = 0;
+	int ec_min = 1, ec_max = 2; // PrunedDP does not allow zero edge weight
 
 
 
-	double solution_cost_DPBF_sum = 0, solution_cost_PrunedDPPlusPlus_sum = 0;
+	int solution_cost_DPBF_sum = 0, solution_cost_PrunedDPPlusPlus_sum = 0;
 
 	double time_DPBF_avg = 0, time_PrunedDPPlusPlus_avg = 0;
 
@@ -68,7 +68,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 		/*input and output*/
 		int generate_new_graph = 1;
-		double lambda = 1;
+		int lambda = 1;
 		std::unordered_set<int> generated_group_vertices;
 		graph_hash_of_mixed_weighted instance_graph, generated_group_graph;
 		if (generate_new_graph == 1) {
@@ -99,7 +99,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 		cout<<"E:"<<csr_graph.E_all<<" v:"<<csr_graph.V<<endl;
 		/*graph_v_of_v_idealID_DPBF_only_ec*/
 		if (1) {
-			double RAM;
+			int RAM;
 			auto begin = std::chrono::high_resolution_clock::now();
 			graph_hash_of_mixed_weighted solu = DPBF_GPU(csr_graph,generated_group_vertices,v_generated_group_graph,v_instance_graph);
 			auto end = std::chrono::high_resolution_clock::now();
@@ -108,7 +108,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 			//graph_hash_of_mixed_weighted_print(solu);
 
-			double cost = graph_hash_of_mixed_weighted_sum_of_ec(solu);
+			int cost = graph_hash_of_mixed_weighted_sum_of_ec(solu);
 			cout<<"cost: "<<cost<<endl;
 			solution_cost_DPBF_sum += cost;
 
@@ -122,7 +122,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 		/*graph_hash_of_mixed_weighted_PrunedDPPlusPlus_edge_weighted*/
 		if (1) {
-			double RAM;
+			int RAM;
 			auto begin = std::chrono::high_resolution_clock::now();
 			graph_hash_of_mixed_weighted solu = graph_v_of_v_idealID_PrunedDPPlusPlus(v_instance_graph, v_generated_group_graph, generated_group_vertices, 1, RAM);
 			auto end = std::chrono::high_resolution_clock::now();
@@ -131,7 +131,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 			//graph_hash_of_mixed_weighted_print(solu);
 
-			double cost = graph_hash_of_mixed_weighted_sum_of_ec(solu);
+			int cost = graph_hash_of_mixed_weighted_sum_of_ec(solu);
 			solution_cost_PrunedDPPlusPlus_sum = solution_cost_PrunedDPPlusPlus_sum + cost;
 
 			if (!this_is_a_feasible_solution_gpu(solu, generated_group_graph, generated_group_vertices)) {

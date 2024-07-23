@@ -6,12 +6,7 @@ using namespace std;
 /*this is the DPBF algorithm in Ding, Bolin, et al. "Finding top-k min-cost connected trees in databases." 2007 IEEE 23rd International Conference on Data Engineering. IEEE, 2007.
 
 time complexity: O( 4^|Gamma| + 3^|Gamma||V|+ 2^|Gamma|* (|E| + |V|*(|Gamma| + log V)) )*/
-__device__ __forceinline__ double atomicMinDouble(double *addr, double value)
-{
-	double old;
-	old = __longlong_as_double(atomicMin((long long *)addr, __double_as_longlong(value)));
-	return old;
-}
+
 struct DPBF_min_node
 {
 	int v;
@@ -20,16 +15,15 @@ struct DPBF_min_node
 };
 typedef struct node
 {
-	int type;	 // =0: this is the single vertex v; =1: this tree is built by grown; =2: built by merge
-	double cost; // cost of this tree T(v,p);
-	int u;		 // if this tree is built by grown, then it's built by growing edge (v,u);
-	int p1, p2;	 // if this tree is built by merge, then it's built by merge T(v,p1) and T(v,p2);
+	int type;	// =0: this is the single vertex v; =1: this tree is built by grown; =2: built by merge
+	int cost;	// cost of this tree T(v,p);
+	int u;		// if this tree is built by grown, then it's built by growing edge (v,u);
+	int p1, p2; // if this tree is built by merge, then it's built by merge T(v,p1) and T(v,p2);
 } node;
 int E, N, width, height;
 int *type, *u, *p1, *p2, *visit, *queue_size, *tes, *queue_end;
-int *all_pointer, *all_edge, *non_overlapped_group_sets_IDs_pointer, *non_overlapped_group_sets_IDs_gpu;
+int *all_pointer, *all_edge, *edge_cost, *non_overlapped_group_sets_IDs_pointer, *non_overlapped_group_sets_IDs_gpu;
 dim3 blockPerGrid, threadPerGrid;
-double *edge_cost;
 node *tree;
 int *Queue;
 int graph_v_of_v_idealID_DPBF_vertex_group_set_ID_gpu(int vertex, graph_v_of_v_idealID &group_graph,
@@ -82,7 +76,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_build_tree_gpu(int root_v
 			int u = trees[v][p].u;
 			waited_to_processed_trees.push({u, p});
 			/*insert (u,v); no need to insert weight of u here, which will be inserted later for T(u,p)*/
-			double c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
+			int c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
 			graph_hash_of_mixed_weighted_add_edge(solution_tree, u, v, c_uv);
 		}
 		else
@@ -138,7 +132,7 @@ __global__ void reset(int *visit, int N, size_t pitch_vis, int problem_size)
 	}
 }
 template <typename SetRef>
-__global__ void Relax(int *Queue, int *queue_size, int *sets_IDs, int *sets_IDS_pointer, int *edge, double *edge_cost, int *pointer, size_t pitch_node, node *tree, int width, SetRef set)
+__global__ void Relax(int *Queue, int *queue_size, int *sets_IDs, int *sets_IDS_pointer, int *edge, int *edge_cost, int *pointer, size_t pitch_node, node *tree, int width, SetRef set)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < *queue_size)
@@ -155,11 +149,11 @@ __global__ void Relax(int *Queue, int *queue_size, int *sets_IDs, int *sets_IDS_
 		{
 
 			int u = edge[i];
-			double cost_euv = edge_cost[i];
+			int cost_euv = edge_cost[i];
 			node *row = (node *)((char *)tree + v * pitch_node);
-			double grow_tree_cost = cost_euv + row[p].cost;
+			int grow_tree_cost = cost_euv + row[p].cost;
 			row = (node *)((char *)tree + u * pitch_node);
-			double old = atomicMinDouble(&row[p].cost, grow_tree_cost);
+			int old = atomicMin(&row[p].cost, grow_tree_cost);
 			if (old <= grow_tree_cost)
 				continue;
 
@@ -168,7 +162,6 @@ __global__ void Relax(int *Queue, int *queue_size, int *sets_IDs, int *sets_IDS_
 				/*below: O(2^|Gamma|*V*(|Gamma| + log V)) throught the loop, since each u is checked 2^|Gamma| times, and Q_T contains at most 2^|Gamma|*V elements */
 
 				/*update T(u,p) by grow T(v,p) with (u,v)*/
-				row[p].cost = grow_tree_cost;
 				row[p].type = 1;
 				row[p].u = v;
 				set.insert(tile, u * width + p);
@@ -192,19 +185,18 @@ __global__ void Relax(int *Queue, int *queue_size, int *sets_IDs, int *sets_IDS_
 		for (auto it = sets_IDS_pointer[p1]; it < sets_IDS_pointer[p1 + 1]; it++)
 		{
 			int p2 = sets_IDs[it]; // p2 is not overlapped with p1
-			double cost_Tvp1, cost_Tvp2;
+			int cost_Tvp1, cost_Tvp2;
 			node *row = (node *)((char *)tree + v * pitch_node);
 			cost_Tvp1 = row[p1].cost;
 			cost_Tvp2 = row[p2].cost;
 			int p1_cup_p2 = p1 + p2;
 
-			double merged_tree_cost = cost_Tvp1 + cost_Tvp2;
-			double old = atomicMinDouble(&row[p1_cup_p2].cost, merged_tree_cost);
+			int merged_tree_cost = cost_Tvp1 + cost_Tvp2;
+			int old = atomicMin(&row[p1_cup_p2].cost, merged_tree_cost);
 			if (old > merged_tree_cost)
 			{ // O(3^|Gamma||V| comparisons in totel, see the DPBF paper)
 
 				/*update T(v,p1_cup_p2) by merge T(v,p1) with T(v,v2)*/
-				row[p1_cup_p2].cost = merged_tree_cost;
 				row[p1_cup_p2].type = 2;
 				row[p1_cup_p2].p1 = p1;
 				row[p1_cup_p2].p2 = p2;
@@ -218,7 +210,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 {
 	E = graph.E_all;
 	N = graph.V;
-	all_edge = graph.all_edge, all_pointer = graph.all_pointer,edge_cost = graph.all_edge_weight;
+	all_edge = graph.all_edge, all_pointer = graph.all_pointer, edge_cost = graph.all_edge_weight;
 	int group_sets_ID_range = pow(2, cumpulsory_group_vertices.size()) - 1;
 	long long unsigned int problem_size = N * pow(2, cumpulsory_group_vertices.size());
 	cudaMallocManaged((void **)&non_overlapped_group_sets_IDs_pointer, sizeof(int) * (group_sets_ID_range + 2));
@@ -243,7 +235,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	cuco::static_set<Key> set{problem_size, cuco::empty_key{empty_key_sentinel}};
 	*queue_size = 0;
 	for (int v = 0; v < N; v++)
-	{
+	{	host_tree[v][0].cost = 0;
 		int group_set_ID_v = graph_v_of_v_idealID_DPBF_vertex_group_set_ID_gpu(v, group_graph, cumpulsory_group_vertices); /*time complexity: O(|Gamma|)*/
 		for (int p = 1; p <= group_sets_ID_range; p++)
 		{ // p is non-empty; time complexity: O(2^|Gamma|) //get all its subset ,which is required in next merge and grow steps
@@ -258,7 +250,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 				host_tree[v][p] = node;
 
 				Queue[*queue_size] = v * width + p;
-				*queue_size+=1;
+				*queue_size += 1;
 				/* DPBF_min_node x;
 				x.v = v;
 				x.p = p;
@@ -272,16 +264,18 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 			std::cout << " v " << Queue[i].v << " p " << Queue[i].p << "; ";
 		} */
 	set.insert(Queue, Queue + *queue_size);
+	queue_end = set.retrieve_all(Queue);
+	cout<<"init set size"<<(queue_end - Queue)<<endl;
 	cudaMemcpy2D(tree, pitch_node, host_tree, width * sizeof(node), width * sizeof(node), height, cudaMemcpyHostToDevice);
 	std::cout << "queue size init " << *queue_size << std::endl;
 	for (size_t i = 0; i < 10; i++)
-    {
-        for (size_t j = 0; j <= group_sets_ID_range; j++)
-        {
-            cout<<host_tree[i][j].cost<<" ";
-        }
-        cout<<endl;
-    }
+	{
+		for (size_t j = 0; j <= group_sets_ID_range; j++)
+		{
+			cout << host_tree[i][j].cost << " ";
+		}
+		cout << endl;
+	}
 	int r = 0;
 	while (*queue_size != 0)
 	{
@@ -296,16 +290,16 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 																							 non_overlapped_group_sets_IDs_pointer, all_edge, edge_cost, all_pointer, pitch_node, tree, width, set.ref(cuco::insert));
 		cudaDeviceSynchronize();
 		cudaMemcpy2D(host_tree, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
-		for (size_t i = 0; i < 10; i++)
-    {
-        for (size_t j = 0; j <= group_sets_ID_range; j++)
-        {
-            cout<<host_tree[i][j].cost<<" ";
-        }
-        cout<<endl;
-    }
+/* 		for (size_t i = 0; i < 10; i++)
+		{
+			for (size_t j = 0; j <= group_sets_ID_range; j++)
+			{
+				cout << host_tree[i][j].cost << " ";
+			}
+			cout << endl;
+		} */
 		queue_end = set.retrieve_all(Queue);
-		*queue_size = (queue_end - Queue) ;
+		*queue_size = (queue_end - Queue);
 		set.clear();
 	}
 	std::cout << "while over" << std::endl;
@@ -315,7 +309,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	int min_cost = 1e9, min_node = -1;
 	for (int i = 0; i < N; i++)
 	{
-		cout<<host_tree[i][group_sets_ID_range].cost<<" ";
+		cout << host_tree[i][group_sets_ID_range].cost << " ";
 		if (host_tree[i][group_sets_ID_range].cost < min_cost)
 		{
 			min_cost = host_tree[i][group_sets_ID_range].cost;
@@ -348,7 +342,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 
 			waited_to_processed_trees.push({u, p});
 			/*insert (u,v); no need to insert weight of u here, which will be inserted later for T(u,p)*/
-			double c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
+			int c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
 			graph_hash_of_mixed_weighted_add_edge(solution_tree, u, v, c_uv);
 		}
 		else

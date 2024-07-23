@@ -13,7 +13,7 @@ using namespace std;
 struct graph_v_of_v_idealID_DPBF_min_node {
 	int v;
 	int p; // group_set_ID
-	float priority_value;
+	int priority_value;
 };
 bool operator<(graph_v_of_v_idealID_DPBF_min_node const& x, graph_v_of_v_idealID_DPBF_min_node const& y) {
 	return x.priority_value > y.priority_value; // < is the max-heap; > is the mean heap; PriorityQueue is expected to be a max-heap of integer values
@@ -30,7 +30,7 @@ public:
 
 	int type; // =0: this is the single vertex v; =1: this tree is built by grown; =2: built by merge
 
-	float cost; // cost of this tree T(v,p);
+	int cost; // cost of this tree T(v,p);
 
 	int u; // if this tree is built by grown, then it's built by growing edge (v,u);
 
@@ -113,7 +113,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_build_tree(int root_v, in
 			int u = pointer_trees_v_p->second.u;
 			waited_to_processed_trees.push({ u,p });
 			/*insert (u,v); no need to insert weight of u here, which will be inserted later for T(u,p)*/
-			double c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
+			int c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
 			graph_hash_of_mixed_weighted_add_edge(solution_tree, u, v, c_uv);
 		}
 		else { // T(v,p) is formed by merge
@@ -131,10 +131,10 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_build_tree(int root_v, in
 
 
 graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
-	graph_v_of_v_idealID& input_graph, graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices, double& RAM_MB) {
+	graph_v_of_v_idealID& input_graph, graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices, int& RAM_MB) {
 
 	/*time complexity: O( 4^|Gamma| + 3^|Gamma||V|+ 2^|Gamma|* (|E| + |V|*(|Gamma| + log V)) ) */
-	double bit_num = 0;
+	int bit_num = 0;
 
 	if (cumpulsory_group_vertices.size() >= 20) {
 		std::cout << "cumpulsory_group_vertices.size() is too large for graph_hash_of_mixed_weighted_DPBF_edge_weighted!" << std::endl;
@@ -144,7 +144,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
 	int N = input_graph.size();
 
 	/*initialization; time complexity: O(4^|Gamma|)*/
-	double inf = std::numeric_limits<double>::max(); // cost of empty tree is inf
+	int inf = std::numeric_limits<int>::max(); // cost of empty tree is inf
 	int group_sets_ID_range = pow(2, cumpulsory_group_vertices.size()) - 1; // the number of group sets: 2^|Gamma|, including empty set;   |Gamma| should be smaller than 31 due to precision
 	/*Group		G1	G0	group_set_ID
 				0   0   0
@@ -197,11 +197,11 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
 	}
 
 
-	double Q_T_max_size = 0;
+	int Q_T_max_size = 0;
 	/*Big while loop*/
 	while (Q_T.size() > 0) { // at most 2^|Gamma|*V loops
 
-		double Q_T_size = Q_T.size();
+		int Q_T_size = Q_T.size();
 		if (Q_T_size > Q_T_max_size) {
 			Q_T_max_size = Q_T_size;
 		}
@@ -228,9 +228,9 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
 
 			/*below: O(2^|Gamma|*E) in all loops, since each v has 2^|Gamma| times*/
 			int u = it->first;
-			double cost_euv = it->second;
-			double grow_tree_cost = trees[v][p].cost + cost_euv;
-			double T_up_cost;
+			int cost_euv = it->second;
+			int grow_tree_cost = trees[v][p].cost + cost_euv;
+			int T_up_cost;
 			if (trees[u].count(p) == 0) {
 				T_up_cost = inf;
 			}
@@ -268,14 +268,14 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
 		int p1 = p;
 		for (auto it = non_overlapped_group_sets_IDs[p1].begin(); it != non_overlapped_group_sets_IDs[p1].end(); it++) {
 			int p2 = *it; // p2 is not overlapped with p1
-			double cost_Tvp1;
+			int cost_Tvp1;
 			if (trees[v].count(p1) == 0) {
 				cost_Tvp1 = inf;
 			}
 			else {
 				cost_Tvp1 = trees[v][p1].cost;
 			}
-			double cost_Tvp2;
+			int cost_Tvp2;
 			if (trees[v].count(p2) == 0) {
 				cost_Tvp2 = inf;
 			}
@@ -283,14 +283,14 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_DPBF_only_ec(
 				cost_Tvp2 = trees[v][p2].cost;
 			}
 			int p1_cup_p2 = p1 + p2;
-			double cost_Tvp1_cup_p2;//old value 
+			int cost_Tvp1_cup_p2;//old value 
 			if (trees[v].count(p1_cup_p2) == 0) {
 				cost_Tvp1_cup_p2 = inf;
 			}
 			else {
 				cost_Tvp1_cup_p2 = trees[v][p1_cup_p2].cost;
 			}
-			double merged_tree_cost = cost_Tvp1 + cost_Tvp2;
+			int merged_tree_cost = cost_Tvp1 + cost_Tvp2;
 			if (merged_tree_cost < cost_Tvp1_cup_p2) { // O(3^|Gamma||V| comparisons in totel, see the DPBF paper)
 
 				/*update T(v,p1_cup_p2) by merge T(v,p1) with T(v,v2)*/

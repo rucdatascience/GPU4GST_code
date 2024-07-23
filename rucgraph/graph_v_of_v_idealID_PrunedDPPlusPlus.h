@@ -14,7 +14,7 @@ Li, Rong-Hua, Lu Qin, Jeffrey Xu Yu, and Rui Mao. "Efficient and progressive gro
 #include "graph_v_of_v_idealID_save_for_GSTP.h"
 
 #pragma region
-pair<vector<int>, vector<float>> graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs_to_g(graph_v_of_v_idealID& group_graph, graph_v_of_v_idealID& input_graph, int g_vertex) {
+pair<vector<int>, vector<int>> graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs_to_g(graph_v_of_v_idealID& group_graph, graph_v_of_v_idealID& input_graph, int g_vertex) {
 
 	/*time complexity: O(|E|+|V|log|V|)*/
 
@@ -28,7 +28,7 @@ pair<vector<int>, vector<float>> graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs_
 	}
 
 	/*time complexity: O(|E|+|V|log|V|)*/
-	vector<float> distances; // total vertex and edge weights of paths
+	vector<int> distances; // total vertex and edge weights of paths
 	vector<int> predecessors;
 	graph_v_of_v_idealID_shortest_paths(input_graph, N, distances, predecessors);
 
@@ -49,11 +49,11 @@ pair<vector<int>, vector<float>> graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs_
 
 }
 
-std::unordered_map<int, pair<vector<int>, vector<float>>> graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs
+std::unordered_map<int, pair<vector<int>, vector<int>>> graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs
 (graph_v_of_v_idealID& input_graph, graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices) {
 
 	/*time complexity: O(|T||E|+|T||V|log|V|)*/
-	std::unordered_map<int, pair<vector<int>, vector<float>>> SPs_to_groups;
+	std::unordered_map<int, pair<vector<int>, vector<int>>> SPs_to_groups;
 	for (auto it = cumpulsory_group_vertices.begin(); it != cumpulsory_group_vertices.end(); it++) {
 		SPs_to_groups[*it] = graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs_to_g(group_graph, input_graph, *it);
 	}
@@ -67,7 +67,7 @@ std::unordered_map<int, pair<vector<int>, vector<float>>> graph_v_of_v_idealID_P
 struct graph_v_of_v_idealID_PrunedDPPlusPlus_min_node {
 	int v;
 	int p; // group_set_ID
-	float priority_value; 
+	int priority_value; 
 };
 bool operator<(graph_v_of_v_idealID_PrunedDPPlusPlus_min_node const& x, graph_v_of_v_idealID_PrunedDPPlusPlus_min_node const& y) {
 	return x.priority_value > y.priority_value; // < is the max-heap; > is the mean heap; PriorityQueue is expected to be a max-heap of integer values
@@ -84,7 +84,7 @@ public:
 
 	int type; // =0: this is the single vertex v; =1: this tree is built by grown; =2: built by merge
 
-	float cost; // cost of this tree T(v,p);
+	int cost; // cost of this tree T(v,p);
 
 	int u; // if this tree is built by grown, then it's built by growing edge (v,u);
 
@@ -148,10 +148,10 @@ vector<vector<int>> graph_v_of_v_idealID_PrunedDPPlusPlus_covered_uncovered_grou
 #pragma endregion graph_v_of_v_idealID_PrunedDPPlusPlus_covered_uncovered_groups
 
 #pragma region
-std::unordered_map<int, std::unordered_map<int, float>> graph_v_of_v_idealID_PrunedDPPlusPlus_virtual_node_distances(graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices,
-	std::unordered_map<int, pair<vector<int>, vector<float>>>& SPs_to_groups) {
+std::unordered_map<int, std::unordered_map<int, int>> graph_v_of_v_idealID_PrunedDPPlusPlus_virtual_node_distances(graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices,
+	std::unordered_map<int, pair<vector<int>, vector<int>>>& SPs_to_groups) {
 
-	std::unordered_map<int, std::unordered_map<int, float>> virtual_node_distances;
+	std::unordered_map<int, std::unordered_map<int, int>> virtual_node_distances;
 
 	for (auto it = cumpulsory_group_vertices.begin(); it != cumpulsory_group_vertices.end(); it++) {
 		int g1 = *it;
@@ -159,10 +159,10 @@ std::unordered_map<int, std::unordered_map<int, float>> graph_v_of_v_idealID_Pru
 		for (auto it2 = cumpulsory_group_vertices.begin(); it2 != cumpulsory_group_vertices.end(); it2++) {
 			int g2 = *it2;
 			if (g1 <= g2) {
-				float distance = std::numeric_limits<float>::max();
+				int distance = std::numeric_limits<int>::max();
 				auto pointer_begin = group_graph[g2].begin(), pointer_end = group_graph[g2].end();
 				for (auto it2 = pointer_begin; it2 != pointer_end; it2++) {
-					float dis = xx->second.second[it2->first];
+					int dis = xx->second.second[it2->first];
 					if (dis < distance) {
 						distance = dis;
 					}
@@ -219,7 +219,7 @@ int graph_hash_of_mixed_weighted_PrunedDPPlusPlus_edge_weighted_vertex_group_ver
 struct graph_v_of_v_idealID_AllPaths_min_node {
 	int v_i, v_j;
 	int Xslash; // group_set_ID
-	float priority_value; // W(v_i,v_j,X)
+	int priority_value; // W(v_i,v_j,X)
 };
 bool operator<(graph_v_of_v_idealID_AllPaths_min_node const& x, graph_v_of_v_idealID_AllPaths_min_node const& y) {
 	return x.priority_value > y.priority_value; // < is the max-heap; > is the min heap; PriorityQueue is expected to be a max-heap of integer values
@@ -227,12 +227,12 @@ bool operator<(graph_v_of_v_idealID_AllPaths_min_node const& x, graph_v_of_v_ide
 typedef typename boost::heap::fibonacci_heap<graph_v_of_v_idealID_AllPaths_min_node>::handle_type handle_graph_v_of_v_idealID_AllPaths_min_node;
 
 
-std::unordered_map<string, float> graph_v_of_v_idealID_AllPaths(std::unordered_set<int>& cumpulsory_group_vertices, std::unordered_map<int, std::unordered_map<int, float>>& virtual_node_distances) {
+std::unordered_map<string, int> graph_v_of_v_idealID_AllPaths(std::unordered_set<int>& cumpulsory_group_vertices, std::unordered_map<int, std::unordered_map<int, int>>& virtual_node_distances) {
 
-	std::unordered_map<string, float> W; // String is ("v_i" + "_" + "v_j" + "_" + "group set ID")
+	std::unordered_map<string, int> W; // String is ("v_i" + "_" + "v_j" + "_" + "group set ID")
 
 	boost::heap::fibonacci_heap<graph_v_of_v_idealID_AllPaths_min_node> Q; // min queue
-	std::unordered_map<string, float> Q_priorities;
+	std::unordered_map<string, int> Q_priorities;
 	std::unordered_map<string, handle_graph_v_of_v_idealID_AllPaths_min_node> Q_handles; // key is String is ("v_i" + "_" + "v_j" + "_" + "group set ID")
 
 	/*D records the popped out optimal subtrees; String is ("v_i" + "_" + "v_j" + "_" + "group set ID") */
@@ -266,7 +266,7 @@ std::unordered_map<string, float> graph_v_of_v_idealID_AllPaths(std::unordered_s
 
 		graph_v_of_v_idealID_AllPaths_min_node top_node = Q.top();
 		int v_i = top_node.v_i, v_j = top_node.v_j, Xslash = top_node.Xslash;
-		float cost = top_node.priority_value;
+		int cost = top_node.priority_value;
 		Q.pop();
 
 		string handle_ID = to_string(v_i) + "_" + to_string(v_j) + "_" + to_string(Xslash);
@@ -302,7 +302,7 @@ std::unordered_map<string, float> graph_v_of_v_idealID_AllPaths(std::unordered_s
 
 				int Xwave = Xslash + p_setID;
 
-				double cost_wave = cost + virtual_node_distances[v_j][p];
+				int cost_wave = cost + virtual_node_distances[v_j][p];
 				handle_ID = to_string(v_i) + "_" + to_string(p) + "_" + to_string(Xwave);
 
 				if (D.count(handle_ID) > 0) {
@@ -365,7 +365,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus_build_tree(in
 			int u = pointer_trees_v_p->second.u;
 			waited_to_processed_trees.push({ u,p });
 			/*insert (u,v); no need to insert weight of u here, which will be inserted later for T(u,p)*/
-			double c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
+			int c_uv = graph_v_of_v_idealID_edge_weight(input_graph, u, v);
 			graph_hash_of_mixed_weighted_add_edge(solution_tree, u, v, c_uv);
 		}
 		else { // T(v,p) is formed by merge
@@ -382,32 +382,32 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus_build_tree(in
 #pragma endregion graph_v_of_v_idealID_PrunedDPPlusPlus_build_tree
 
 #pragma region
-double graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(int v, int X, double cost, int group_sets_ID_range, vector<vector<int>>& uncovered_groups,
-	std::unordered_map<int, pair<vector<int>, vector<float>>>& SPs_to_groups, std::unordered_map<string, float>& W, std::unordered_map<string, float>& W2) {
+int graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(int v, int X, int cost, int group_sets_ID_range, vector<vector<int>>& uncovered_groups,
+	std::unordered_map<int, pair<vector<int>, vector<int>>>& SPs_to_groups, std::unordered_map<string, int>& W, std::unordered_map<string, int>& W2) {
 
-	double lb = 0; // lb should be lower bound cost of a feasible solution contains T(v,X)
+	int lb = 0; // lb should be lower bound cost of a feasible solution contains T(v,X)
 
 	if (group_sets_ID_range != X) {
 		int X_slash = group_sets_ID_range - X; // X_slash \cup X equals group_sets_ID_range
 
-		double lb1 = INT_MAX, lb2 = -1, lb_one_label = -1;
+		int lb1 = INT_MAX, lb2 = -1, lb_one_label = -1;
 		vector<int> *pointer_1 = &(uncovered_groups[X]);
 		for (auto it = (*pointer_1).begin(); it != (*pointer_1).end(); it++) {
 			int i = *it;
-			float dis_v_i = SPs_to_groups[i].second[v];
-			float xxx = INT_MAX;
+			int dis_v_i = SPs_to_groups[i].second[v];
+			int xxx = INT_MAX;
 			for (auto it2 = (*pointer_1).begin(); it2 != (*pointer_1).end(); it2++) {
 				int j = *it2;
-				float dis_v_j = SPs_to_groups[j].second[v];
+				int dis_v_j = SPs_to_groups[j].second[v];
 				if (xxx > dis_v_j) {
 					xxx = dis_v_j;
 				}
-				float lb1_value = (dis_v_i + W[to_string(i) + "_" + to_string(j) + "_" + to_string(X_slash)] + dis_v_j) / 2;
+				int lb1_value = (dis_v_i + W[to_string(i) + "_" + to_string(j) + "_" + to_string(X_slash)] + dis_v_j) / 2;
 				if (lb1 > lb1_value) {
 					lb1 = lb1_value;
 				}
 			}
-			float lb2_value = (dis_v_i + W2[to_string(i) + "_" + to_string(X_slash)] + xxx) / 2;
+			int lb2_value = (dis_v_i + W2[to_string(i) + "_" + to_string(X_slash)] + xxx) / 2;
 			if (lb2 < lb2_value) {
 				lb2 = lb2_value;
 			}
@@ -435,10 +435,10 @@ double graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(int v, int X, double c
 }
 #pragma endregion graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure
 
-graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_idealID& input_graph, graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices, double maximum_return_app_ratio, double& RAM_MB) {
+graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_idealID& input_graph, graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices, int maximum_return_app_ratio, int& RAM_MB) {
 
 	/*this function returns the first found feasible solution that has an approximation ratio not larger than maximum_return_app_ratio*/
-	double bit_num = 0;
+	int bit_num = 0;
 
 	if (cumpulsory_group_vertices.size() >= 15) {
 		std::cout << "cumpulsory_group_vertices.size() is too large!" << std::endl;
@@ -446,13 +446,13 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 	}
 
 	int N = input_graph.size();
-	float error_safeguard = 1e-5;
-	float inf = std::numeric_limits<float>::max(); // cost of empty tree is inf
+	int error_safeguard = 1e-5;
+	int inf = std::numeric_limits<int>::max(); // cost of empty tree is inf
 
 	/*finding lowest-weighted paths from groups to vertices; time complexity: O(|T||E|+|T||V|log|V|); return {g_ID, { distances, predecessors }} */
-	std::unordered_map<int, pair<vector<int>, vector<float>>> SPs_to_groups = graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs(input_graph, group_graph, cumpulsory_group_vertices);
+	std::unordered_map<int, pair<vector<int>, vector<int>>> SPs_to_groups = graph_v_of_v_idealID_PrunedDPPlusPlus_find_SPs(input_graph, group_graph, cumpulsory_group_vertices);
 	for (auto it = SPs_to_groups.begin(); it != SPs_to_groups.end(); it++) {
-		bit_num += ((*it).second.first.size() + (*it).second.second.size()) * 4 + sizeof(pair<vector<int>, vector<float>>) + 4 + 3 * 8;
+		bit_num += ((*it).second.first.size() + (*it).second.second.size()) * 4 + sizeof(pair<vector<int>, vector<int>>) + 4 + 3 * 8;
 	}
 
 
@@ -460,12 +460,12 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 	/*initialize Q*/
 	boost::heap::fibonacci_heap<graph_v_of_v_idealID_PrunedDPPlusPlus_min_node> Q_T; // min queues of trees
 	std::unordered_map<string, handle_graph_v_of_v_idealID_PrunedDPPlusPlus_min_node> Q_T_handles; // key is string "v_p" ("vertex_ID" + "_" + "group set ID"); Q_T_handles only contain keys that are in Q_T
-	std::unordered_map<string, float> Q_T_priorities; // key is string "v_p" ("vertex_ID" + "_" + "group set ID"); Q_T_priorities only contain keys that are in Q_T
+	std::unordered_map<string, int> Q_T_priorities; // key is string "v_p" ("vertex_ID" + "_" + "group set ID"); Q_T_priorities only contain keys that are in Q_T
 
 
 	/* this is the cost of the best found solution yet */
 	graph_hash_of_mixed_weighted best_solu;
-	float best_cost = inf;
+	int best_cost = inf;
 
 	/*initialize non_overlapped_group_sets; time complexity: O(4^|Gamma|);
 	Group		G1	G0	group_set_ID
@@ -489,20 +489,20 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 	}
 
 
-	std::unordered_map<int, std::unordered_map<int, float>> virtual_distances = graph_v_of_v_idealID_PrunedDPPlusPlus_virtual_node_distances(group_graph, cumpulsory_group_vertices, SPs_to_groups);
-	xxm = sizeof(std::unordered_map<int, float>);
+	std::unordered_map<int, std::unordered_map<int, int>> virtual_distances = graph_v_of_v_idealID_PrunedDPPlusPlus_virtual_node_distances(group_graph, cumpulsory_group_vertices, SPs_to_groups);
+	xxm = sizeof(std::unordered_map<int, int>);
 	auto ite2 = virtual_distances.end();
 	for (auto it = virtual_distances.begin(); it != ite2; it++) {
 		bit_num += xxm + (it->second).size() * 8;
 	}
 
 
-	std::unordered_map<string, float> W = graph_v_of_v_idealID_AllPaths(cumpulsory_group_vertices, virtual_distances); // String is ("v_i" + "_" + "v_j" + "_" + "group set ID")	
-	std::unordered_map<string, float> W2; // String is ("v_i" + "_" + "group set ID")
+	std::unordered_map<string, int> W = graph_v_of_v_idealID_AllPaths(cumpulsory_group_vertices, virtual_distances); // String is ("v_i" + "_" + "v_j" + "_" + "group set ID")	
+	std::unordered_map<string, int> W2; // String is ("v_i" + "_" + "group set ID")
 	for (auto it = cumpulsory_group_vertices.begin(); it != cumpulsory_group_vertices.end(); it++) {
 		int v_i = *it;
 		for (int Xslash = 1; Xslash <= group_sets_ID_range; Xslash++) {
-			double dis = INT_MAX;
+			int dis = INT_MAX;
 			for (auto it2 = cumpulsory_group_vertices.begin(); it2 != cumpulsory_group_vertices.end(); it2++) {
 				int v_j = *it2;
 				string handle_ID = to_string(v_i) + "_" + to_string(v_j) + "_" + to_string(Xslash);
@@ -555,19 +555,19 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 
 	//cout << "group_sets_ID_range:" << group_sets_ID_range << endl;
 
-	double Q_T_max_size = 0;
+	int Q_T_max_size = 0;
 	graph_v_of_v_idealID_PrunedDPPlusPlus_min_node top_node;
 	/*Big while loop*/
 	while (Q_T.size() > 0) { // at most 2^|Gamma|*V loops
 
-		double Q_T_size = Q_T.size();
+		int Q_T_size = Q_T.size();
 		if (Q_T_size > Q_T_max_size) {
 			Q_T_max_size = Q_T_size;
 		}
 
 		top_node = Q_T.top();
 		int v = top_node.v, X = top_node.p;
-		double v_X_tree_cost = trees[v][X].cost;
+		int v_X_tree_cost = trees[v][X].cost;
 		Q_T.pop(); // O(2^|Gamma|*V*(|Gamma| + log V)) throught the loop, since Q_T contains at most 2^|Gamma|*V elements
 
 		string handle_ID = to_string(v) + "_" + to_string(X);
@@ -589,7 +589,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 
 
 		/*build a feasible solution, report app ratio, and update best; O(|T||V| + |V|log|V|)*/
-		double feasible_solu_cost = v_X_tree_cost;
+		int feasible_solu_cost = v_X_tree_cost;
 		auto ite3 = uncovered_groups[X].end();
 		for (auto it = uncovered_groups[X].begin(); it != ite3; it++) {
 			feasible_solu_cost = feasible_solu_cost + SPs_to_groups[*it].second[v];
@@ -602,7 +602,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 				int v_start = v;
 				int pre = SPs_to_groups[g_id].first[v_start];
 				while (v_start != pre) {
-					double ec = graph_v_of_v_idealID_edge_weight(input_graph, v_start, pre);
+					int ec = graph_v_of_v_idealID_edge_weight(input_graph, v_start, pre);
 					graph_hash_of_mixed_weighted_add_vertex(feasible_solu, pre, 0);
 					graph_hash_of_mixed_weighted_add_edge(feasible_solu, v_start, pre, ec);
 					v_start = pre;
@@ -616,7 +616,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 
 		/*since an optimal solution has not been popped out, the optimal cost must be larger than or equal to v_X_tree_cost*/
 		if (v_X_tree_cost > 0) {
-			double ratio = best_cost / v_X_tree_cost;
+			int ratio = best_cost / v_X_tree_cost;
 			//cout << "ratio:" << ratio << " v_X_tree_cost:" << v_X_tree_cost << endl;
 			if (ratio <= maximum_return_app_ratio + 1e-5) { // this feasible solution can be returned
 
@@ -633,9 +633,9 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 		handle_ID = to_string(v) + "_" + to_string(X_slash);
 		if (D.count(handle_ID) > 0) {
 
-			double merged_tree_cost = v_X_tree_cost + trees[v][X_slash].cost;
+			int merged_tree_cost = v_X_tree_cost + trees[v][X_slash].cost;
 
-			double cost_Tvp1_cup_p2 = inf;
+			int cost_Tvp1_cup_p2 = inf;
 			if (trees[v].count(group_sets_ID_range) > 0) {
 				cost_Tvp1_cup_p2 = trees[v][group_sets_ID_range].cost;
 			}
@@ -647,7 +647,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 				node_x.p2 = X_slash;
 				trees[v][group_sets_ID_range] = node_x;
 
-				double lb = merged_tree_cost;
+				int lb = merged_tree_cost;
 
 				if (merged_tree_cost > best_cost + error_safeguard) { // cannot have >= here, since best_solu may not be in Q; if >=, then best_solu may never be in Q
 					continue;
@@ -693,8 +693,8 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 
 				/*below: O(2^|Gamma|*E) in all loops, since each v has 2^|Gamma| times*/
 				int u = it->first;
-				double cost_euv = it->second;
-				double grow_tree_cost = trees[v][X].cost + cost_euv;
+				int cost_euv = it->second;
+				int grow_tree_cost = trees[v][X].cost + cost_euv;
 
 				handle_ID = to_string(u) + "_" + to_string(X);
 				//cout << "grow " << handle_ID <<  " grow_tree_cost " << grow_tree_cost << " best_cost " << best_cost << endl;
@@ -702,7 +702,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 					continue;
 				}
 
-				double T_up_cost;
+				int T_up_cost;
 				if (trees[u].count(X) == 0) {
 					T_up_cost = inf;
 				}
@@ -716,7 +716,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 					node_x.u = v;
 					trees[u][X] = node_x;
 
-					double lb = graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(u, X, grow_tree_cost, group_sets_ID_range, uncovered_groups, SPs_to_groups, W, W2);
+					int lb = graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(u, X, grow_tree_cost, group_sets_ID_range, uncovered_groups, SPs_to_groups, W, W2);
 
 					//cout << "grow T_up_cost=" << T_up_cost << " lb=" << lb << " best_cost=" << best_cost << endl;
 
@@ -767,11 +767,11 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 						continue;
 					}
 
-					double merged_tree_cost = v_X_tree_cost + trees[v][p2].cost;
+					int merged_tree_cost = v_X_tree_cost + trees[v][p2].cost;
 
 					//cout << "merge " << handle_ID << " merged_tree_cost " << merged_tree_cost << " best_cost " << best_cost << endl;
 
-					double cost_Tvp1_cup_p2;
+					int cost_Tvp1_cup_p2;
 					if (trees[v].count(p1_cup_p2) == 0) {
 						cost_Tvp1_cup_p2 = inf;
 					}
@@ -791,7 +791,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 						note the following place of error_safeguard; this if condition should be met even if error_safeguard=inf*/
 						if (merged_tree_cost <= best_cost * 2 / 3 + error_safeguard) { // error_safeguard is error
 
-							double lb = graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(v, p1_cup_p2, merged_tree_cost, group_sets_ID_range, uncovered_groups, SPs_to_groups, W, W2);
+							int lb = graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(v, p1_cup_p2, merged_tree_cost, group_sets_ID_range, uncovered_groups, SPs_to_groups, W, W2);
 							//cout << "merge cost_Tvp1_cup_p2=" << cost_Tvp1_cup_p2 << " lb_slash=" << lb_slash << " lb=" << lb << " best_cost=" << best_cost << endl;
 
 							if (lb > best_cost + error_safeguard) {

@@ -1,13 +1,13 @@
 #pragma once
 
 
-double graph_hash_of_mixed_weighted_sum_of_nw_ec(graph_hash_of_mixed_weighted& input_graph) {
+int graph_hash_of_mixed_weighted_sum_of_nw_ec(graph_hash_of_mixed_weighted& input_graph) {
 
-	double sum = 0;
+	int sum = 0;
 
 	for (auto it1 = input_graph.hash_of_vectors.begin(); it1 != input_graph.hash_of_vectors.end(); it1++) {
 		int i = it1->first;
-		double w_i = it1->second.vertex_weight;
+		int w_i = it1->second.vertex_weight;
 		sum = sum + w_i;
 
 		auto search = input_graph.hash_of_hashs.find(i);
@@ -15,7 +15,7 @@ double graph_hash_of_mixed_weighted_sum_of_nw_ec(graph_hash_of_mixed_weighted& i
 			for (auto it2 = search->second.begin(); it2 != search->second.end(); it2++) {
 				int j = it2->first;
 				if (i < j) { // edge (i,j)
-					double c_ij = it2->second;
+					int c_ij = it2->second;
 					sum = sum + c_ij;
 				}
 			}
@@ -25,7 +25,7 @@ double graph_hash_of_mixed_weighted_sum_of_nw_ec(graph_hash_of_mixed_weighted& i
 			for (auto it2 = search2->second.adj_vertices.begin(); it2 != search2->second.adj_vertices.end(); it2++) {
 				int j = it2->first;
 				if (i < j) { // edge (i,j)
-					double c_ij = it2->second;
+					int c_ij = it2->second;
 					sum = sum + c_ij;
 				}
 			}
@@ -39,13 +39,13 @@ double graph_hash_of_mixed_weighted_sum_of_nw_ec(graph_hash_of_mixed_weighted& i
 
 
 
-double graph_hash_of_mixed_weighted_sum_of_nw(graph_hash_of_mixed_weighted& input_graph) {
+int graph_hash_of_mixed_weighted_sum_of_nw(graph_hash_of_mixed_weighted& input_graph) {
 
-	double sum = 0;
+	int sum = 0;
 
 	for (auto it1 = input_graph.hash_of_vectors.begin(); it1 != input_graph.hash_of_vectors.end(); it1++) {
 		int i = it1->first;
-		double w_i = it1->second.vertex_weight;
+		int w_i = it1->second.vertex_weight;
 		sum = sum + w_i;
 	}
 
@@ -55,9 +55,9 @@ double graph_hash_of_mixed_weighted_sum_of_nw(graph_hash_of_mixed_weighted& inpu
 
 
 
-double graph_hash_of_mixed_weighted_sum_of_ec(graph_hash_of_mixed_weighted& input_graph) {
+int graph_hash_of_mixed_weighted_sum_of_ec(graph_hash_of_mixed_weighted& input_graph) {
 
-	double sum = 0;
+	int sum = 0;
 
 	for (auto it1 = input_graph.hash_of_vectors.begin(); it1 != input_graph.hash_of_vectors.end(); it1++) {
 		int i = it1->first;

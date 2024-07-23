@@ -4,7 +4,7 @@
 
 void graph_hash_of_mixed_weighted_save_for_GSTP(std::string instance_name,
 	graph_hash_of_mixed_weighted& input_graph, graph_hash_of_mixed_weighted& group_graph,
-	std::unordered_set<int>& group_vertices, double lambda) {
+	std::unordered_set<int>& group_vertices, int lambda) {
 
 	std::ofstream outputFile;
 	outputFile.precision(10);
@@ -37,7 +37,7 @@ void graph_hash_of_mixed_weighted_save_for_GSTP(std::string instance_name,
 		if (search != input_graph.hash_of_hashs.end()) {
 			for (auto it2 = search->second.begin(); it2 != search->second.end(); it2++) {
 				int j = it2->first;
-				double ec = it2->second;
+				int ec = it2->second;
 				if (i <= j) {
 					outputFile << "input_graph Edge " << i << " " << j << " " << ec << '\n';
 				}
@@ -47,7 +47,7 @@ void graph_hash_of_mixed_weighted_save_for_GSTP(std::string instance_name,
 			auto search2 = input_graph.hash_of_vectors.find(i);
 			for (auto it2 = search2->second.adj_vertices.begin(); it2 != search2->second.adj_vertices.end(); it2++) {
 				int j = it2->first;
-				double ec = it2->second;
+				int ec = it2->second;
 				if (i <= j) {
 					outputFile << "input_graph Edge " << i << " " << j << " " << ec << '\n';
 				}
@@ -70,7 +70,7 @@ void graph_hash_of_mixed_weighted_save_for_GSTP(std::string instance_name,
 		if (search != group_graph.hash_of_hashs.end()) {
 			for (auto it2 = search->second.begin(); it2 != search->second.end(); it2++) {
 				int j = it2->first;
-				double ec = it2->second;
+				int ec = it2->second;
 				if (i <= j) {
 					outputFile << "group_graph Edge " << i << " " << j << " " << ec << '\n';
 				}
@@ -80,7 +80,7 @@ void graph_hash_of_mixed_weighted_save_for_GSTP(std::string instance_name,
 			auto search2 = group_graph.hash_of_vectors.find(i);
 			for (auto it2 = search2->second.adj_vertices.begin(); it2 != search2->second.adj_vertices.end(); it2++) {
 				int j = it2->first;
-				double ec = it2->second;
+				int ec = it2->second;
 				if (i <= j) {
 					outputFile << "group_graph Edge " << i << " " << j << " " << ec << '\n';
 				}

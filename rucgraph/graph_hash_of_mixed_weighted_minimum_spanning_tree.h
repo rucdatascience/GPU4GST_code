@@ -19,7 +19,7 @@ it looks like no memory leak here*/
 
 struct node_for_mst {
 	int index;
-	double priority_value;
+	int priority_value;
 }; // define the node in the queue
 bool operator<(node_for_mst const& x, node_for_mst const& y) {
 	return x.priority_value > y.priority_value; // < is the max-heap; > is the min heap
@@ -28,14 +28,14 @@ typedef typename boost::heap::pairing_heap<node_for_mst>::handle_type handle_t_f
 
 std::unordered_map<int, int> graph_hash_of_mixed_weighted_minimum_spanning_tree(graph_hash_of_mixed_weighted& input_graph) {
 
-	/*Prim¡¯s Minimum Spanning Tree: https://www.geeksforgeeks.org/prims-minimum-spanning-tree-mst-greedy-algo-5/
+	/*Primï¿½ï¿½s Minimum Spanning Tree: https://www.geeksforgeeks.org/prims-minimum-spanning-tree-mst-greedy-algo-5/
 	time complexity: O(|E|+|V|log|V|);*/
 
 	std::unordered_map<int, int> mst; // edges: vertex, and its pair vertex in mst
-	double inf = std::numeric_limits<double>::max();
+	int inf = std::numeric_limits<int>::max();
 	node_for_mst node;
 	boost::heap::pairing_heap<node_for_mst> Q;
-	std::unordered_map<int, double> Q_keys;
+	std::unordered_map<int, int> Q_keys;
 	std::unordered_map<int, handle_t_for_mst> Q_handles;
 
 	/*time complexity: O(|V|)*/
@@ -73,7 +73,7 @@ std::unordered_map<int, int> graph_hash_of_mixed_weighted_minimum_spanning_tree(
 		if (search != input_graph.hash_of_hashs.end()) {
 			for (auto it2 = search->second.begin(); it2 != search->second.end(); it2++) {
 				int adj_v = it2->first;
-				double ec = it2->second;
+				int ec = it2->second;
 				if (mst.count(adj_v) > 0) { // adj_v is in mst
 					if (ec == Q_keys[top_v]) {
 						mst[top_v] = adj_v; // find an mst edge (top_v,adj_v); top_v is now in mst
@@ -94,7 +94,7 @@ std::unordered_map<int, int> graph_hash_of_mixed_weighted_minimum_spanning_tree(
 			auto search2 = input_graph.hash_of_vectors.find(top_v);
 			for (auto it2 = search2->second.adj_vertices.begin(); it2 != search2->second.adj_vertices.end(); it2++) {
 				int adj_v = it2->first;
-				double ec = it2->second;
+				int ec = it2->second;
 
 				if (mst.count(adj_v) > 0) { // adj_v is in mst
 					if (ec == Q_keys[top_v]) {
@@ -118,7 +118,7 @@ std::unordered_map<int, int> graph_hash_of_mixed_weighted_minimum_spanning_tree(
 						Q_keys[adj_v] = ec;
 						node.index = adj_v;
 						node.priority_value = Q_keys[adj_v];
-						Q.update(Q_handles[adj_v], node); // this causes bugs when adj_v == top_v £¨ ±ß (e1, e1) ´æÔÚµÄÇé¿öÏÂ £©
+						Q.update(Q_handles[adj_v], node); // this causes bugs when adj_v == top_v ï¿½ï¿½ ï¿½ï¿½ (e1, e1) ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
 					}
 
 					//cout << 5.0 << endl;
@@ -149,16 +149,16 @@ void graph_unordered_map_minimum_spanning_tree_print(std::unordered_map<int, int
 
 
 
-double graph_hash_of_mixed_weighted_minimum_spanning_tree_cost(graph_hash_of_mixed_weighted& input_graph,
+int graph_hash_of_mixed_weighted_minimum_spanning_tree_cost(graph_hash_of_mixed_weighted& input_graph,
 	std::unordered_map<int, int>& mst) {
 
-	double cost = 0;
+	int cost = 0;
 
 	for (auto it = mst.begin(); it != mst.end(); ++it) {
 
 		if (it->first != it->second) {
 
-			double ec = graph_hash_of_mixed_weighted_edge_weight(input_graph, it->first, it->second);
+			int ec = graph_hash_of_mixed_weighted_edge_weight(input_graph, it->first, it->second);
 
 			cost = cost + ec;
 		}
