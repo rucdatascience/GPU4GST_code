@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
-include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM_0.40.0.cmake)
+message("generator:${CMAKE_GENERATOR}")
+message("C++ compiler:${CMAKE_CXX_COMPILER}")
+if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CUCO_RAPIDS.cmake)
+file(
+  DOWNLOAD
+  https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.40.0/CPM.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake
+)
+endif()
+include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CUCO_RAPIDS.cmake)
     file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-24.08/RAPIDS.cmake
          ${CMAKE_CURRENT_BINARY_DIR}/CUCO_RAPIDS.cmake)
