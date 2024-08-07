@@ -52,8 +52,8 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 	/*parameters*/
 	int iteration_times = 1;
-	int V = 1000, E = 3000, G = 4, g_size_min = 1, g_size_max = 3, precision = 0;
-	int ec_min = 1, ec_max = 2; // PrunedDP does not allow zero edge weight
+	int V = 10000, E = 50000, G = 4, g_size_min = 1, g_size_max = 4, precision = 0;
+	int ec_min = 1, ec_max = 4; // PrunedDP does not allow zero edge weight
 
 
 
@@ -85,7 +85,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 			graph_hash_of_mixed_weighted_read_for_GSTP("simple_iterative_tests.text", instance_graph,
 				generated_group_graph, generated_group_vertices, lambda);
 		}
-		
+		cout<<"generate complete"<<endl;
 		unordered_map<int, int> vertexID_old_to_new;
 		for (int mm = 0; mm < V; mm++) {
 			vertexID_old_to_new[mm] = mm;
@@ -142,7 +142,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 		}
 
 		if (solution_cost_DPBF_sum + 1e-8 < solution_cost_PrunedDPPlusPlus_sum) {
-			cout << "solution_cost_DPBF_sum=" << solution_cost_DPBF_sum << endl;
+			cout << "solution_cost_DPQ_GPU_sum=" << solution_cost_DPBF_sum << endl;
 			cout << "solution_cost_PrunedDPPlusPlus_sum=" << solution_cost_PrunedDPPlusPlus_sum << endl;
 			cout << "wrong answer" << endl;
 			getchar();
