@@ -17,11 +17,11 @@ typedef struct node
 } node;
 int E, N, width, height;
 int *type, *u, *p1, *p2, *visit, *queue_size, *tes, *queue_end, *tree_cost, *qsize, *nq, *best;
-int *all_pointer, *all_edge, *edge_cost, *non_overlapped_group_sets_IDs_pointer, *non_overlapped_group_sets_IDs_gpu;
+int *all_pointer, *all_edge, *edge_cost, *non_overlapped_group_sets_IDs_gpu,*non_overlapped_group_sets_IDs_pointer_device;
 dim3 blockPerGrid, threadPerGrid;
 node *tree;
 int *Queue_dev;
-
+std::vector<int> non_overlapped_group_sets_IDs_pointer_host;
 int graph_v_of_v_idealID_DPBF_vertex_group_set_ID_gpu(int vertex, graph_v_of_v_idealID &group_graph,
 													  std::unordered_set<int> &cumpulsory_group_vertices)
 {
@@ -55,7 +55,7 @@ void graph_v_of_v_idealID_DPBF_non_overlapped_group_sets_gpu(int group_sets_ID_r
 	int len = 0;
 	for (int i = 1; i <= group_sets_ID_range; i++)
 	{ // i is a nonempty group_set ID
-		non_overlapped_group_sets_IDs_pointer[i] = len;
+		non_overlapped_group_sets_IDs_pointer_host[i] = len;
 		for (int j = 1; j < group_sets_ID_range; j++)
 		{ // j is another nonempty group_set ID
 			if ((i & j) == 0)
@@ -67,7 +67,7 @@ void graph_v_of_v_idealID_DPBF_non_overlapped_group_sets_gpu(int group_sets_ID_r
 			}
 		}
 	}
-	non_overlapped_group_sets_IDs_pointer[group_sets_ID_range + 1] = len;
+	non_overlapped_group_sets_IDs_pointer_host[group_sets_ID_range + 1] = len;
 
 	cudaMallocManaged((void **)&non_overlapped_group_sets_IDs_gpu, sizeof(int) * len);
 	cudaMemcpy(non_overlapped_group_sets_IDs_gpu, non_overlapped_group_sets_IDs.data(), sizeof(int) * len, cudaMemcpyHostToDevice);
@@ -101,14 +101,14 @@ __global__ void Relax(int *Queue_dev, int *queue_size, int *sets_IDs, int *sets_
 
 		auto tile = cg::tiled_partition<cg_size>(cg::this_thread_block());
 		int x_slash = full - p;
-		if (row_v[x_slash]!=inf&&row_v[p]!=inf)
+		if (row_v[x_slash] != inf && row_v[p] != inf)
 		{
-			int new_best = row_v[x_slash]+row_v[p];
-			atomicMin(best,new_best);
-			atomicMin(&row_v[full],new_best);
+			int new_best = row_v[x_slash] + row_v[p];
+			atomicMin(best, new_best);
+			atomicMin(&row_v[full], new_best);
 			atomicMin(&row_node_v[full].cost, new_best);
 		}
-		
+
 		if (row_v[p] > (*best) / 2)
 		{
 			return;
@@ -118,7 +118,6 @@ __global__ void Relax(int *Queue_dev, int *queue_size, int *sets_IDs, int *sets_
 			/*grow*/
 			int u = edge[i];
 			int cost_euv = edge_cost[i];
-
 
 			int *row_u = (int *)((char *)tree_cost + u * pitch_int);
 			int grow_tree_cost = row_v[p] + cost_euv;
@@ -151,8 +150,7 @@ __global__ void Relax(int *Queue_dev, int *queue_size, int *sets_IDs, int *sets_
 			// && merged_tree_cost < 2 / 3 * (*best)
 			int old = atomicMin(&row_v[p1_cup_p2], merged_tree_cost);
 			atomicMin(&row_node_v[p1_cup_p2].cost, merged_tree_cost);
-		
-				
+
 			if (old >= merged_tree_cost && merged_tree_cost != inf)
 			{ // O(3^|Gamma||V| comparisons in totel, see the DPBF paper)
 
@@ -161,14 +159,12 @@ __global__ void Relax(int *Queue_dev, int *queue_size, int *sets_IDs, int *sets_
 				row_node_v[p1_cup_p2].p1 = p1;
 				row_node_v[p1_cup_p2].p2 = p2;
 				row_node_v[p1_cup_p2].cost = merged_tree_cost;
-				
+
 				if (merged_tree_cost < 0.667 * (*best))
 				{
 					int ins = v * width + p1_cup_p2;
 					row_node_v[p1_cup_p2].in = set.insert(ins);
 				}
-				
-				
 			}
 		}
 	}
@@ -181,14 +177,15 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	all_edge = graph.all_edge, all_pointer = graph.all_pointer, edge_cost = graph.all_edge_weight;
 	int group_sets_ID_range = pow(2, cumpulsory_group_vertices.size()) - 1;
 	int inf = 1024;
-
+	non_overlapped_group_sets_IDs_pointer_host.resize(group_sets_ID_range + 3);
 	long long unsigned int problem_size = N * pow(2, cumpulsory_group_vertices.size());
-	cudaMallocManaged((void **)&non_overlapped_group_sets_IDs_pointer, sizeof(int) * (group_sets_ID_range + 3));
+	cudaMallocManaged((void **)&non_overlapped_group_sets_IDs_pointer_device, sizeof(int) * (group_sets_ID_range + 3));
 	cudaMallocManaged((void **)&queue_size, sizeof(int));
 	cudaMallocManaged((void **)&qsize, sizeof(int));
 	cudaMallocManaged((void **)&Queue_dev, sizeof(int) * problem_size);
 	cudaMallocManaged((void **)&best, sizeof(int));
 	graph_v_of_v_idealID_DPBF_non_overlapped_group_sets_gpu(group_sets_ID_range);
+	cudaMemcpy(non_overlapped_group_sets_IDs_pointer_device, non_overlapped_group_sets_IDs_pointer_host.data(), (group_sets_ID_range + 3) * sizeof(int), cudaMemcpyHostToDevice);
 	std::cout << "group range " << group_sets_ID_range << std::endl;
 	threadPerGrid.x = THREAD_PER_BLOCK;
 	blockPerGrid.x = (N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK;
@@ -264,7 +261,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 		cout << endl;
 		// reset<<<(N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(visit, N, pitch_vis, group_sets_ID_range);
 		Relax<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(Queue_dev, queue_size, non_overlapped_group_sets_IDs_gpu,
-																							 non_overlapped_group_sets_IDs_pointer, all_edge, edge_cost, all_pointer, pitch_node, pitch_int, tree, tree_cost, width, inf, best, group_sets_ID_range, set.ref(cuco::insert));
+																							 non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, pitch_node, pitch_int, tree, tree_cost, width, inf, best, group_sets_ID_range, set.ref(cuco::insert));
 		cudaDeviceSynchronize();
 		/* 		cudaMemcpy2D(host_tree, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
 				cudaMemcpy2D(host_cost, width * sizeof(int), tree_cost, pitch_int, width * sizeof(int), height, cudaMemcpyDeviceToHost);
