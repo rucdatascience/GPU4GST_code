@@ -435,7 +435,7 @@ int graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure(int v, int X, int cost, i
 }
 #pragma endregion graph_v_of_v_idealID_PrunedDPPlusPlus_LB_procedure
 
-graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_idealID& input_graph, graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices, int maximum_return_app_ratio, int& RAM_MB) {
+graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_idealID& input_graph, graph_v_of_v_idealID& group_graph, std::unordered_set<int>& cumpulsory_group_vertices, int maximum_return_app_ratio, int& RAM_MB,int *pointer2) {
 
 	/*this function returns the first found feasible solution that has an approximation ratio not larger than maximum_return_app_ratio*/
 	int bit_num = 0;
@@ -558,8 +558,9 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 	int Q_T_max_size = 0;
 	graph_v_of_v_idealID_PrunedDPPlusPlus_min_node top_node;
 	/*Big while loop*/
+	int counts = 0;
 	while (Q_T.size() > 0) { // at most 2^|Gamma|*V loops
-
+		counts++;
 		int Q_T_size = Q_T.size();
 		if (Q_T_size > Q_T_max_size) {
 			Q_T_max_size = Q_T_size;
@@ -576,10 +577,10 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 
 		//cout << "X:" << X << endl;
 		if (X == group_sets_ID_range) { // T(v,p) covers all groups 	
-
+		
 			bit_num += Q_T_max_size * (sizeof(graph_v_of_v_idealID_PrunedDPPlusPlus_min_node) + 8 + sizeof(handle_graph_v_of_v_idealID_PrunedDPPlusPlus_min_node) + 8); // Q_T + Q_T_handles
 			RAM_MB = bit_num / 1024 / 1024;
-
+			
 			graph_hash_of_mixed_weighted feasible_solu = graph_v_of_v_idealID_PrunedDPPlusPlus_build_tree(v, X, input_graph, trees);
 			return feasible_solu;
 		}
@@ -619,7 +620,8 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 			int ratio = best_cost / v_X_tree_cost;
 			//cout << "ratio:" << ratio << " v_X_tree_cost:" << v_X_tree_cost << endl;
 			if (ratio <= maximum_return_app_ratio + 1e-5) { // this feasible solution can be returned
-
+					std::cout<<"count "<<counts<<std::endl;
+					*pointer2+=counts;
 				bit_num += Q_T_max_size * (sizeof(graph_v_of_v_idealID_PrunedDPPlusPlus_min_node) + 8 + sizeof(handle_graph_v_of_v_idealID_PrunedDPPlusPlus_min_node) + 8); // Q_T + Q_T_handles
 				RAM_MB = bit_num / 1024 / 1024;
 
@@ -829,6 +831,7 @@ graph_hash_of_mixed_weighted graph_v_of_v_idealID_PrunedDPPlusPlus(graph_v_of_v_
 		}
 	}
 
+	
 
 	std::cout << "graph_v_of_v_idealID_PrunedDPPlusPlus did not find a feasible solution!" << std::endl;
 	graph_v_of_v_idealID_save_for_GSTP("PrunedDPPlusPlus_irregular.txt", input_graph, group_graph, cumpulsory_group_vertices);
