@@ -76,8 +76,30 @@ void graph_v_of_v_idealID_DPBF_non_overlapped_group_sets_gpu(int group_sets_ID_r
 	cudaMemcpy(non_overlapped_group_sets_IDs_gpu, non_overlapped_group_sets_IDs.data(), sizeof(int) * len, cudaMemcpyHostToDevice);
 	std::cout << "len= " << len << std::endl;
 }
+__device__ void get_lb(int *edge, int *edge_cost, int *pointer, size_t pitch_node, size_t pitch_int, size_t pitch_dis, int *dis, node *tree, int *tree_cost, int inf, int *best, int full, int cost, int *lb, int v, int p)
+{
+	int *row_v = (int *)((char *)tree_cost + v * pitch_int);
+	node *row_node_v = (node *)((char *)tree + v * pitch_node);
 
-__global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *new_queue_device, int *new_queue_size, int *sets_IDs, int *sets_IDS_pointer, int *edge, int *edge_cost, int *pointer, size_t pitch_node, size_t pitch_int, size_t pitch_dis, int *dis, node *tree, int *tree_cost, int inf, int *best, int full)
+	int x_slash = full - p, g = 0, one_label = -1;
+	while (x_slash)
+	{
+		if (x_slash & 1)
+		{
+			int *row_g = (int *)((char *)dis + g * pitch_int);
+			if (row_g[v] > one_label)
+			{
+				one_label = row_g[v];
+			}
+		}
+
+		g++;
+		x_slash >>= 1;
+	}
+	*lb = one_label + cost;
+}
+
+__global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *new_queue_device, int *new_queue_size, int *sets_IDs, int *sets_IDS_pointer, int *edge, int *edge_cost, int *pointer, size_t pitch_node, size_t pitch_int, size_t pitch_dis, int *dis, node *tree, int *tree_cost, int inf, int *best, int full, int *lb1, int *lb2)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < *queue_size)
@@ -103,7 +125,16 @@ __global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *
 				}
 			}
 		}
-		
+		int fea = row_v[p];
+		for (size_t gp = 1, g = 0; gp <= x_slash; gp <<= 1, g++)
+		{
+			int *row_g = (int *)((char *)dis + g * pitch_dis);
+			if (gp & x_slash == gp)
+			{
+				fea += row_g[v];
+			}
+		}
+		atomicMin(best, fea);
 		if (row_v[p] > (*best) / 2)
 		{
 			return;
@@ -111,16 +142,45 @@ __global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *
 		for (int i = pointer[v]; i < pointer[v + 1]; i++)
 		{
 			/*grow*/
-			
+			int lb;
 			int u = edge[i];
 			int cost_euv = edge_cost[i];
 			int *row_u = (int *)((char *)tree_cost + u * pitch_int);
+			int *row_lb1 = (int *)((char *)lb1 + u * pitch_int);
+			int *row_lb2 = (int *)((char *)lb2 + u * pitch_int);
 			int grow_tree_cost = row_v[p] + cost_euv;
 			int old = atomicMin(&row_u[p], grow_tree_cost);
 			node *row_node_u = (node *)((char *)tree + u * pitch_node);
 			// get_lb(edge,edge_cost,pointer,pitch_node,pitch_int,pitch_dis,dis,tree,tree_cost,inf,best,full,grow_tree_cost,plb,v,p);
-			
+			x_slash = full - p;
+			lb = row_lb1[x_slash] > row_lb2[x_slash] ? row_lb1[x_slash] : row_lb2[x_slash];
+			int g = 0, one_label = -1;
+			if (p == full)
+			{
+				atomicMin(best, grow_tree_cost);
+			}
+			while (x_slash)
+			{
+				if (x_slash & 1)
+				{
+					int *row_g = (int *)((char *)dis + g * pitch_dis);
+					if (row_g[u] > one_label)
+					{
+						one_label = row_g[u];
+					}
+				}
+				g++;
+				x_slash = x_slash >> 1;
+			}
+			lb = lb > one_label ? lb : one_label;
+
 			atomicMin(&row_node_u[p].cost, grow_tree_cost);
+			int low_bound = atomicMax(&row_node_u[p].lb, lb);
+
+			if (low_bound > *best)
+			{
+				continue;
+			}
 
 			if (old >= grow_tree_cost && grow_tree_cost != inf)
 			{
@@ -150,7 +210,33 @@ __global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *
 			// && merged_tree_cost < 2 / 3 * (*best)
 			int old = atomicMin(&row_v[p1_cup_p2], merged_tree_cost);
 			atomicMin(&row_node_v[p1_cup_p2].cost, merged_tree_cost);
-			
+			int *row_lb1 = (int *)((char *)lb1 + v * pitch_int);
+			int *row_lb2 = (int *)((char *)lb2 + v * pitch_int);
+			x_slash = full - p;
+			int lb;
+			lb = row_lb1[x_slash] > row_lb2[x_slash] ? row_lb1[x_slash] : row_lb2[x_slash];
+			int g = 0, one_label = -1;
+
+			while (x_slash)
+			{
+				if (x_slash & 1)
+				{
+					int *row_g = (int *)((char *)dis + g * pitch_dis);
+					if (row_g[v] > one_label)
+					{
+						one_label = row_g[v];
+					}
+				}
+				g++;
+				x_slash = x_slash >> 1;
+			}
+			lb = lb > one_label ? lb : one_label;
+			int low_bound = atomicMax(&row_node_v[p].lb, lb);
+
+			if (low_bound > *best)
+			{
+				continue;
+			}
 			if (old >= merged_tree_cost && merged_tree_cost != inf)
 			{ // O(3^|Gamma||V| comparisons in totel, see the DPBF paper)
 
@@ -257,7 +343,192 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	time_process += runningtime;
 	cout << "allocate cost time " << runningtime << endl;
 	*best = inf;
+	begin = std::chrono::high_resolution_clock::now();
+	for (size_t i = 0; i < G; i++)
+	{
+		for (size_t j = 0; j < N; j++)
+		{
+			host_dis[i][j] = inf;
+		}
+		// cout << "for group " << i << "  to ";
+		for (size_t j = 0; j < group_graph[N + i].size(); j++)
+		{
+			cout << group_graph[N + i][j].first << " ";
+			host_dis[i][group_graph[N + i][j].first] = 0;
+		}
+		// cout << "distance 0" << endl;
+	}
 
+	cudaMemcpy2D(dis, pitch_dis, host_dis, N * sizeof(int), N * sizeof(int), G, cudaMemcpyHostToDevice);
+
+	for (size_t i = 0; i < G; i++)
+	{
+
+		// cout << "queue init for " << i << " group" << endl;
+		*queue_size = group_graph[N + i].size();
+		*new_queue_size = 0;
+		for (size_t j = 0; j < group_graph[N + i].size(); j++)
+		{
+			dis_queue[j] = group_graph[N + i][j].first;
+			// cout << dis_queue[j] << " ";
+		}
+		dis_init<<<(N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(i, in_queue_check, pitch_vis, N);
+		while (*queue_size)
+		{
+
+			// cout << "size " << *queue_size << endl;
+			dis_Relax<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(dis_queue, new_dis_queue, dis, in_queue_check, queue_size, new_queue_size, all_edge, edge_cost, all_pointer, pitch_dis, i);
+			cudaDeviceSynchronize();
+			/* 			cudaMemcpy2D(host_dis, N * sizeof(int), dis, pitch_dis, N * sizeof(int), G, cudaMemcpyDeviceToHost);
+						cudaDeviceSynchronize();
+						for (size_t j = 0; j < N; j++)
+						{
+							cout << j << ":" << host_dis[i][j] << " ";
+						}
+						cout << endl; */
+
+			*queue_size = *new_queue_size;
+			*new_queue_size = 0;
+			std::swap(dis_queue, new_dis_queue);
+		}
+	}
+	cudaMemcpy2D(host_dis, N * sizeof(int), dis, pitch_int, N * sizeof(int), G, cudaMemcpyDeviceToHost);
+	end = std::chrono::high_resolution_clock::now();
+	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
+	time_process += runningtime;
+	cout << "distance cost time " << runningtime << endl;
+	begin = std::chrono::high_resolution_clock::now();
+	int host_w[G][G][width], host_w1[G][width];
+
+	for (size_t i = 0; i < G; i++)
+	{
+		for (size_t j = 0; j < G; j++)
+		{
+			for (size_t k = 0; k < width; k++)
+			{
+
+				host_w[i][j][k] = inf;
+			}
+		}
+	}
+	for (size_t vi = 0; vi < G; vi++)
+	{
+		for (size_t j = 0; j < group_graph[vi].size(); j++)
+		{
+			for (size_t vg = 0; vg < G; vg++)
+			{
+				for (size_t ii = 0; ii < group_graph[vg].size(); ii++)
+				{
+					host_w[vi][vg][0] = min(host_w[vi][vg][0], host_dis[group_graph[vi][j].first][group_graph[vg][ii].first]);
+				}
+			}
+		}
+	}
+	for (size_t i = 0; i < G; i++)
+	{
+		for (size_t j = 0; j < G; j++)
+		{
+
+			for (size_t x = 1; x <= group_sets_ID_range; x++)
+			{
+				int p_except = 1;
+				while (p_except <= x)
+				{
+					if (p_except==1<<(j+1))
+					{
+						continue;
+					}
+					
+					if (p_except & x == p_except)
+					{
+						host_w[i][j][x] = min(host_w[i][j][x], host_w[i][p_except][0] + host_w[i][p_except][x-p_except]);
+					}
+					p_except <<= 1;
+				}
+			}
+		}
+	}
+	for (size_t v = 0; v < N; v++)
+	{
+		for (size_t x = 1; x < width; x++)
+		{
+			int vi = 1;
+			while (vi <= x)
+			{
+				int vj = vi << 1;
+				while (vj <= x)
+				{
+					host_f1[v][x] = min(host_f1[v][x], host_dis[vi][v] + host_dis[vj][v] + host_w[vi][vj][x]);
+					vj <<= 1;
+				}
+
+				vi <<= 1;
+			}
+			host_f1[v][x] /= 2;
+		}
+	}
+	for (size_t i = 0; i < G; i++)
+	{
+		for (size_t x = 1; x < width; x++)
+		{
+			for (size_t k = 0; k < G; k++)
+			{
+				host_w1[i][x] = min(host_w1[i][x], host_w[i][k][x]);
+			}
+		}
+	}
+
+	for (size_t v = 0; v < N; v++)
+	{
+		for (size_t x = 1; x < width; x++)
+		{
+			int vj = 1;
+			int dist = inf;
+			while (vj <= x)
+			{
+				if (vj & x == vj)
+				{
+					dist = min(dist, host_dis[vj][v]);
+				}
+				vj <<= 1;
+			}
+			int vi = 1;
+			while (vi <= x)
+			{
+				if (vi & x == vi)
+				{
+					host_f2[v][x] = max(host_f2[v][x], host_dis[vi][v] + host_w1[vi][x] + dist);
+				}
+				vi <<= 1;
+			}
+			host_f2[v][x] /= 2;
+		}
+	}
+	cudaMemcpy2D(lb1, pitch_int, host_f1, width * sizeof(int), width * sizeof(int), N, cudaMemcpyHostToDevice);
+	cudaMemcpy2D(lb2, pitch_int, host_f2, width * sizeof(int), width * sizeof(int), N, cudaMemcpyHostToDevice);
+	/* 	cudaExtent extent = make_cudaExtent(N * sizeof(int), N, width);
+		cudaPitchedPtr devPitchedPtr;
+		cudaMalloc3D(&devPitchedPtr, extent);
+		cudaMemcpy3DParms DevToHost = {0};
+		DevToHost.srcPtr = devPitchedPtr;
+		DevToHost.dstPtr = make_cudaPitchedPtr((void *)host_w, width * sizeof(int), width, N);
+		DevToHost.extent = extent;
+		DevToHost.kind = cudaMemcpyDeviceToHost;
+		cudaMemcpy3D(&DevToHost); */
+
+	/* 	for (size_t i = 0; i < G; i++)
+		{
+			cout << i << " ";
+			for (size_t j = 0; j < N; j++)
+			{
+				cout << j << ":" << host_dis[i][j] << " ";
+			}
+			cout << endl;
+		} */
+	end = std::chrono::high_resolution_clock::now();
+	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
+	time_process += runningtime;
+	cout << "host_lb cost time " << time_process << endl;
 	begin = std::chrono::high_resolution_clock::now();
 	*queue_size = 0, *new_queue_size = 0;
 	for (int v = 0; v < N; v++)
@@ -305,7 +576,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 				} */
 		cout << endl;
 		Relax<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, queue_size, new_queue_device, new_queue_size, non_overlapped_group_sets_IDs_gpu,
-																							 non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, pitch_node, pitch_int, pitch_dis, dis, tree, tree_cost, inf, best, group_sets_ID_range);
+																							 non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, pitch_node, pitch_int, pitch_dis, dis, tree, tree_cost, inf, best, group_sets_ID_range, lb1, lb2);
 		cudaDeviceSynchronize();
 		/* 		cudaMemcpy2D(host_tree, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
 				cudaMemcpy2D(host_cost, width * sizeof(int), tree_cost, pitch_int, width * sizeof(int), height, cudaMemcpyDeviceToHost);

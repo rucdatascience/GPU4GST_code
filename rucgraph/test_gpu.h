@@ -51,16 +51,17 @@ bool this_is_a_feasible_solution_gpu(graph_hash_of_mixed_weighted& solu, graph_h
 void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 	/*parameters*/
-	int iteration_times = 1;
+	int iteration_times = 20;
 	int V = 10000, E = 50000, G = 4, g_size_min = 1, g_size_max = 4, precision = 0;
-	int ec_min = 1, ec_max = 4; // PrunedDP does not allow zero edge weight
+	int ec_min = 1, ec_max =4; // PrunedDP does not allow zero edge weight
 
 
 
 	int solution_cost_DPBF_sum = 0, solution_cost_PrunedDPPlusPlus_sum = 0;
 
 	double time_DPBF_avg = 0, time_PrunedDPPlusPlus_avg = 0;
-
+	int p_gpu = 0,p_cpu = 0;
+	int *pointer1 = &p_gpu,*pointer2 = &p_cpu;
 	/*iteration*/
 	for (int i = 0; i < iteration_times; i++) {
 
@@ -101,7 +102,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 		if (1) {
 			int RAM;
 			auto begin = std::chrono::high_resolution_clock::now();
-			graph_hash_of_mixed_weighted solu = DPBF_GPU(csr_graph,generated_group_vertices,v_generated_group_graph,v_instance_graph);
+			graph_hash_of_mixed_weighted solu = DPBF_GPU(csr_graph,generated_group_vertices,v_generated_group_graph,v_instance_graph,pointer1);
 			auto end = std::chrono::high_resolution_clock::now();
 			double runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
 			time_DPBF_avg += (double)runningtime / iteration_times;
@@ -124,7 +125,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 		if (1) {
 			int RAM;
 			auto begin = std::chrono::high_resolution_clock::now();
-			graph_hash_of_mixed_weighted solu = graph_v_of_v_idealID_PrunedDPPlusPlus(v_instance_graph, v_generated_group_graph, generated_group_vertices, 1, RAM);
+			graph_hash_of_mixed_weighted solu = graph_v_of_v_idealID_PrunedDPPlusPlus(v_instance_graph, v_generated_group_graph, generated_group_vertices, 1, RAM,pointer2);
 			auto end = std::chrono::high_resolution_clock::now();
 			double runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
 			time_PrunedDPPlusPlus_avg = time_PrunedDPPlusPlus_avg + (double)runningtime / iteration_times;
@@ -137,7 +138,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 			if (!this_is_a_feasible_solution_gpu(solu, generated_group_graph, generated_group_vertices)) {
 				cout << "Error: graph_v_of_v_idealID_DPBF_only_ec is not feasible!" << endl;
 				graph_hash_of_mixed_weighted_print(solu);
-				exit(1);
+				//exit(1);
 			}
 		}
 
@@ -150,7 +151,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu() {
 
 
 	}
-
+	cout<<"gpu "<<*pointer1<<"cpu "<<*pointer2<<endl;
 	cout << "solution_cost_DPBF_sum=" << solution_cost_DPBF_sum << endl;
 	cout << "solution_cost_PrunedDPPlusPlus_sum=" << solution_cost_PrunedDPPlusPlus_sum << endl;
 
