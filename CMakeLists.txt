@@ -24,25 +24,20 @@ include(rapids-export)
 include(rapids-find)
 # * Determine GPU architectures
 # * Enable the CMake CUDA language
-rapids_cuda_init_architectures(CUCO)
 project(DPBF VERSION 0.0.1 LANGUAGES CXX CUDA)
-CPMAddPackage(
-  NAME cuco
-  GITHUB_REPOSITORY NVIDIA/cuCollections
-  GIT_TAG dev
-  OPTIONS
-     "BUILD_TESTS OFF"
-     "BUILD_BENCHMARKS OFF"
-     "BUILD_EXAMPLES OFF"
+rapids_cuda_init_architectures(DPBF)
+rapids_find_package(
+    CUDAToolkit REQUIRED
+ 
 )
+add_executable(${PROJECT_NAME} src/try_gpu.cpp src/DPQ.cu)
+target_link_libraries(${PROJECT_NAME}  CUDA::toolkit)
 include_directories(rucgraph )
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/bin)
 aux_source_directory(src DIR_SRCS)
 set(SPECIAL_SOURCE_FILE src/DPQ.cu)
  
 
-add_executable(${PROJECT_NAME} src/try_gpu.cpp src/DPQ.cu)
-target_link_libraries(${PROJECT_NAME} cuco)
 # 为特定源文件设置特殊的编译命令
 set_source_files_properties(
     ${SPECIAL_SOURCE_FILE}
