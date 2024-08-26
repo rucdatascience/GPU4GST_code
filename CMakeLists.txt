@@ -1,38 +1,33 @@
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
+
 message("generator:${CMAKE_GENERATOR}")
 message("C++ compiler:${CMAKE_CXX_COMPILER}")
+project(DPBF VERSION 0.0.1 LANGUAGES CXX)
+enable_language(CUDA)
+find_package(CUDA REQUIRED)
+# * Determine GPU architectures
+if(NOT DEFINED CMAKE_CUDA_STANDARD)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD 17)
+endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O3")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
-if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CUCO_RAPIDS.cmake)
-file(
-  DOWNLOAD
-  https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.40.0/CPM.cmake
-  ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake
-)
-endif()
-include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
-if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CUCO_RAPIDS.cmake)
-    file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-24.08/RAPIDS.cmake
-         ${CMAKE_CURRENT_BINARY_DIR}/CUCO_RAPIDS.cmake)
-endif()
-include(${CMAKE_CURRENT_BINARY_DIR}/CUCO_RAPIDS.cmake)
 
-include(rapids-cmake)
-include(rapids-cpm)
-include(rapids-cuda)
-include(rapids-export)
-include(rapids-find)
-# * Determine GPU architectures
+
 # * Enable the CMake CUDA language
-project(DPBF VERSION 0.0.1 LANGUAGES CXX CUDA)
-rapids_cuda_init_architectures(DPBF)
-rapids_find_package(
-    CUDAToolkit REQUIRED
- 
-)
+
 add_executable(${PROJECT_NAME} src/try_gpu.cpp src/DPQ.cu)
-target_link_libraries(${PROJECT_NAME}  CUDA::toolkit)
-include_directories(rucgraph )
+target_include_directories(${PROJECT_NAME} PUBLIC ${CUDA_INCLUDE_DIRS})
+set(BOOST_ROOT "/home/lijiayu/boost")
+# 禁用搜索系统路径
+set(Boost_NO_SYSTEM_PATHS ON) # 非常重要，否则会导致找不到 Boost 库
+# 查找Boost库，指定需要的组件
+find_package(Boost REQUIRED)
+message("${Boost_INCLUDE_DIRS}")
+message("${Boost_LIBRARIES}")
+# 包含Boost头文件目录
+include_directories(${Boost_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} PUBLIC rucgraph)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/bin)
 aux_source_directory(src DIR_SRCS)
 set(SPECIAL_SOURCE_FILE src/DPQ.cu)
