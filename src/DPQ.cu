@@ -27,6 +27,14 @@ dim3 blockPerGrid, threadPerGrid;
 node *tree;
 queue_element *queue_device, *new_queue_device;
 std::vector<int> non_overlapped_group_sets_IDs_pointer_host;
+
+vector<int> v_label;
+int *LB, *dis2; //*dis1; //, *dis2, *W;
+//LB[N][width] : the lower_bound of cost at {v,p}
+//dis1[N][G] : the minimum distance from v to a vertex with label p, you can use host tree to get it
+//dis2[G][G] : the distance between a vertex with label p1 to a vertex with label p2
+//W[G][G][width] : from a vertex with label p1 to a vertex with label p2 and all the label in the route is p
+
 int graph_v_of_v_idealID_DPBF_vertex_group_set_ID_gpu(int vertex, graph_v_of_v_idealID &group_graph,
 													  std::unordered_set<int> &cumpulsory_group_vertices)
 {
@@ -77,7 +85,7 @@ void graph_v_of_v_idealID_DPBF_non_overlapped_group_sets_gpu(int group_sets_ID_r
 	std::cout << "len= " << len << std::endl;
 }
 
-__global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *new_queue_device, int *new_queue_size, int *sets_IDs, int *sets_IDS_pointer, int *edge, int *edge_cost, int *pointer, size_t pitch_node, size_t pitch_int, size_t pitch_dis, int *dis, node *tree, int inf, int *best, int full, int *lb0)
+__global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *new_queue_device, int *new_queue_size, int *sets_IDs, int *sets_IDS_pointer, int *edge, int *edge_cost, int *pointer, size_t pitch_node, size_t pitch_int, size_t pitch_dis, int *dis, node *tree, int inf, int *best, int full, int *lb0, size_t pitch_LB, int* LB)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < *queue_size)
@@ -85,6 +93,9 @@ __global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *
 		queue_element top_node = Queue_dev[idx];
 		int v = top_node.v, p = top_node.p;
 		node *row_node_v = (node *)((char *)tree + v * pitch_node);
+
+		int *lb1=(int *)((char *)LB + v * pitch_LB);//I still need to add the lb in queue
+
 		int x_slash = full - p;
 		row_node_v[p].update = 0;
 		if (row_node_v[x_slash].cost != inf)
@@ -132,7 +143,7 @@ __global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *
 				row_node_u[p].u = v;
 				// enqueue operation
 				int check = atomicCAS(&row_node_u[p].update, 0, 1);
-				if (check == 0 && lb0[u] + grow_tree_cost <= (*best))
+				if (check == 0 && max(lb0[u], *lb1[x_slash]) + grow_tree_cost <= (*best))
 				{
 					int pos = atomicAdd(new_queue_size, 1);
 					new_queue_device[pos].v = u;
@@ -160,7 +171,7 @@ __global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *
 				row_node_v[p1_cup_p2].p1 = p1;
 				row_node_v[p1_cup_p2].p2 = p2;
 
-				if (merged_tree_cost < 0.667 * (*best) && lb0[v] + merged_tree_cost < (*best))
+				if (merged_tree_cost < 0.667 * (*best) && max(lb0[v], *lb1[x_slash]) + merged_tree_cost < (*best))
 				{
 					int check = atomicCAS(&row_node_v[p1_cup_p2].update, 0, 1);
 					if (check == 0)
@@ -239,13 +250,54 @@ __global__ void dis_Relax(int *dis_queue, int *new_dis_queue, int *dis, int *in_
 				int check = atomicCAS(&row_in[v], 0, 1);
 				if (!check)
 				{
-					int pos = atomicAdd(new_queue_size, 1);
+					int pos = atomicAdd(new_queue_size, 1); //will some vertex  added many times?
 					new_dis_queue[pos] = v;
 				}
 			}
 		}
 	}
 }
+
+__global__ void update_dis2(int* dis2, size_t pitch_dis2, int G, node &host_tree){
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if(idx < N){
+		int statu = v_label[idx];
+		for(int i = 0; i < G; i++) if(statu >> i & 1){
+			int *DIS2 = (int *)((char *)dis2 + i * pitch_dis2);
+			for(int j = 0; j < G; j++) if(j != i && statu >> j & 1){
+				atomicMin(&DIS2[j], 0);
+			}
+		}
+		for(int i = 0; i < G; i++) if(!(statu >> i & 1)){
+			int *DIS2 = (int *)((char *)dis2 + i * pitch_dis2);
+			for(int j = 0; j < G; j++) if(statu >> j & 1){
+				atomicMin(&DIS2[j], host_tree[idx][1 << j].cost);
+			}
+		}
+	}
+}
+
+__global__ void update_LB(int* LB, size_t pitch_LB , int G, int &w, node &host_tree){
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if(idx < N){
+		int *row_s = (int *)((char *)LB + idx * pitch_LB);
+		for(int statu = 1; statu < (1 << G); statu++){
+			int rev = (1 << G) ^ statu;
+			int dist = 2e9;
+			for(int i = 0; i < G; i++) if(rev >> i & 1) {
+				dist = min(dist, host_tree[idx][1 << i].cost);
+			}
+			int lb1 = 2e9, lb2 = -2e9;
+			for(int i = 0; i < G; i++) if(rev >> i & 1)
+				for(int j = 0; j < G; j++) if(rev >> j & 1)
+					lb1 = min(lb1, (host_tree[idx][1 << i].cost + w[i][j][rev] + host_tree[idx][1 << j].cost) / 2);
+			for(int i = 0; i < G; i++) if(rev >> i & 1)
+				lb2 = max(lb2, (host_tree[idx][1 << i].cost + w[i][i][rev] + dist) / 2);
+			row_s[statu] = max(lb1, lb2);
+		}
+	}
+}
+
 graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> &cumpulsory_group_vertices, graph_v_of_v_idealID &group_graph, graph_v_of_v_idealID &input_graph, int *pointer1, int *real_cost)
 {
 	double time_process = 0;
@@ -254,7 +306,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	int G = cumpulsory_group_vertices.size();
 	all_edge = graph.all_edge, all_pointer = graph.all_pointer, edge_cost = graph.all_edge_weight;
 	int group_sets_ID_range = pow(2, G) - 1;
-
+	v_label.resize(N);
 	non_overlapped_group_sets_IDs_pointer_host.resize(group_sets_ID_range + 3);
 	long long unsigned int problem_size = N * pow(2, cumpulsory_group_vertices.size());
 	cudaMalloc((void **)&non_overlapped_group_sets_IDs_pointer_device, sizeof(int) * (group_sets_ID_range + 3));
@@ -274,7 +326,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	width = group_sets_ID_range + 1, height = N;
 	size_t pitch_node, pitch_int, pitch_vis, pitch_dis;
 	node host_tree[height][width];
-	int host_cost[height][width];
+	int host_cost[height][width];  //is it ok to create so huge array in a function?
 	int host_dis[G][N], host_f1[N][width], host_f2[N][width];
 	queue_element host_queue[problem_size];
 	cudaMallocPitch(&dis, &pitch_dis, N * sizeof(int), G);
@@ -365,7 +417,8 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	for (int v = 0; v < N; v++)
 	{
 		host_tree[v][0].cost = 0;
-		int group_set_ID_v = graph_v_of_v_idealID_DPBF_vertex_group_set_ID_gpu(v, group_graph, cumpulsory_group_vertices); /*time complexity: O(|Gamma|)*/
+		int group_set_ID_v = graph_v_of_v_idealID_DPBF_vertex_group_set_ID_gpu(v, group_agraph, cumpulsory_group_vertices); /*time complexity: O(|Gamma|)*/
+		v_label[v] = group_set_ID_v;
 		for (int p = 1; p <= group_sets_ID_range; p++)
 		{ // p is non-empty; time complexity: O(2^|Gamma|) //get all its subset ,which is required in next merge and grow steps
 
@@ -392,6 +445,41 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 		} */
 	cout << endl;
 
+	size_t pitch_LB, pitch_dis2;
+	cudaMallocPitch(&LB, &pitch_LB, N * sizeof(int), width);
+	cudaMallocPitch(&dis2, &pitch_dis2, G * sizeof(int), G);
+	for(int i = 0; i < G; i++) {
+		for(int j = 0; j < G; j++)
+			dis2[i][j] = 2e9;
+		dis2[i][i]=0;
+	}
+	update_dis2 <<< (N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK >>> ( dis2, pitch_dis2 , G, host_tree);
+	int W[G][G][width];
+	for(int i = 0; i < G; i++)
+		for(int j = 0; j < G; j++)
+			w[i][j][0] = dis2[i][j];
+	for(int ki = 1; ki < group_sets_ID_range; ki++) {
+		for(int i = 0; i < G; i++)
+			for(int j = 0; j < G; j++)
+				w[i][j][ki] = 2e9;
+		if(ki - (ki & -ki) == 0){
+			for(int i = 0; i < G; i++) if(ki >> i & 1){
+				w[i][i][ki] = 0;
+			}
+		}
+		else{
+			for(int i = 0; i < G; i++) if(ki >> i & 1)
+				for(int j = 0; j < G; j++) if(j != i && (ki >> j & 1) )
+					for(int k = 0; k < G; k++) if(k != j && (ki >> k  & 1))
+						w[i][j][ki] = min(w[i][j][ki], w[i][k][ki- (1<<j)] + dis2[k][j]);
+			for(int i = 0; i < G; i++) if(ki >> i & 1)
+				for(int j = 0; j < G; j++) if(j != i && (ki >> j & 1) )
+					w[i][i][ki] = min(w[i][i][ki], w[i][j][ki] + dis2[j][i]);
+		}
+	}
+	int dist[N][width];
+	update_LB <<< (N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK >>> ( LB, pitch_LB , G, w, host_tree);
+
 	r = 0;
 	while (*queue_size != 0)
 	{
@@ -403,7 +491,8 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 		}cout << endl; */
 		
 		Relax<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, queue_size, new_queue_device, new_queue_size, non_overlapped_group_sets_IDs_gpu,
-																							 non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, pitch_node, pitch_int, pitch_dis, dis, tree, inf, best, group_sets_ID_range, lb0);
+																							 non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, pitch_node, pitch_int, pitch_dis, dis, tree, inf, best, group_sets_ID_range, lb0,
+																							 pitch_LB, LB);
 		cudaDeviceSynchronize();
 		/* 				cudaMemcpy2D(host_tree, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
 						for (size_t i = 0; i < N; i++)
