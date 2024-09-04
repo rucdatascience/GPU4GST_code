@@ -277,7 +277,7 @@ __global__ void update_dis2(int* dis2, size_t pitch_dis2, int G, node &host_tree
 	}
 }
 
-__global__ void update_LB(int* LB, size_t pitch_LB , int G, int &w, node &host_tree){
+__global__ void update_LB(int* LB, size_t pitch_LB , int G, int &W, node &host_tree){
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if(idx < N){
 		int *row_s = (int *)((char *)LB + idx * pitch_LB);
@@ -290,9 +290,9 @@ __global__ void update_LB(int* LB, size_t pitch_LB , int G, int &w, node &host_t
 			int lb1 = 2e9, lb2 = -2e9;
 			for(int i = 0; i < G; i++) if(rev >> i & 1)
 				for(int j = 0; j < G; j++) if(rev >> j & 1)
-					lb1 = min(lb1, (host_tree[idx][1 << i].cost + w[i][j][rev] + host_tree[idx][1 << j].cost) / 2);
+					lb1 = min(lb1, (host_tree[idx][1 << i].cost + W[i][j][rev] + host_tree[idx][1 << j].cost) / 2);
 			for(int i = 0; i < G; i++) if(rev >> i & 1)
-				lb2 = max(lb2, (host_tree[idx][1 << i].cost + w[i][i][rev] + dist) / 2);
+				lb2 = max(lb2, (host_tree[idx][1 << i].cost + W[i][i][rev] + dist) / 2);
 			row_s[statu] = max(lb1, lb2);
 		}
 	}
@@ -455,30 +455,26 @@ graph_hash_of_mixed_weighted DPBF_GPU(CSR_graph &graph, std::unordered_set<int> 
 	}
 	update_dis2 <<< (N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK >>> ( dis2, pitch_dis2 , G, host_tree);
 	int W[G][G][width];
-	for(int i = 0; i < G; i++)
-		for(int j = 0; j < G; j++)
-			w[i][j][0] = dis2[i][j];
 	for(int ki = 1; ki < group_sets_ID_range; ki++) {
 		for(int i = 0; i < G; i++)
 			for(int j = 0; j < G; j++)
 				w[i][j][ki] = 2e9;
 		if(ki - (ki & -ki) == 0){
 			for(int i = 0; i < G; i++) if(ki >> i & 1){
-				w[i][i][ki] = 0;
+				W[i][i][ki] = 0;
 			}
 		}
 		else{
 			for(int i = 0; i < G; i++) if(ki >> i & 1)
 				for(int j = 0; j < G; j++) if(j != i && (ki >> j & 1) )
 					for(int k = 0; k < G; k++) if(k != j && (ki >> k  & 1))
-						w[i][j][ki] = min(w[i][j][ki], w[i][k][ki- (1<<j)] + dis2[k][j]);
+						W[i][j][ki] = min(w[i][j][ki], W[i][k][ki ^ (1<<j)] + dis2[k][j]);
 			for(int i = 0; i < G; i++) if(ki >> i & 1)
 				for(int j = 0; j < G; j++) if(j != i && (ki >> j & 1) )
-					w[i][i][ki] = min(w[i][i][ki], w[i][j][ki] + dis2[j][i]);
+					W[i][i][ki] = min(W[i][i][ki], W[i][j][ki] + dis2[j][i]);
 		}
 	}
-	int dist[N][width];
-	update_LB <<< (N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK >>> ( LB, pitch_LB , G, w, host_tree);
+	update_LB <<< (N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK >>> ( LB, pitch_LB , G, W, host_tree);
 
 	r = 0;
 	while (*queue_size != 0)
