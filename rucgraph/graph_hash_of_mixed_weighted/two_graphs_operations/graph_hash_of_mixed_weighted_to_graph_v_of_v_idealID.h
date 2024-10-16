@@ -14,7 +14,7 @@ graph_v_of_v_idealID graph_hash_of_mixed_weighted_to_graph_v_of_v_idealID(graph_
 			for (auto it2 = search->second.begin(); it2 != search->second.end(); it2++) {
 				int j = it2->first;
 				if (i < j) {
-					double ec = it2->second;
+					int ec = it2->second;
 					graph_v_of_v_idealID_add_edge(output_graph, vertexID_old_to_new[i], vertexID_old_to_new[j], ec);
 				}
 			}
@@ -24,7 +24,7 @@ graph_v_of_v_idealID graph_hash_of_mixed_weighted_to_graph_v_of_v_idealID(graph_
 			for (auto it2 = search2->second.adj_vertices.begin(); it2 != search2->second.adj_vertices.end(); it2++) {
 				int j = it2->first;
 				if (i < j) {
-					double ec = it2->second;
+					int ec = it2->second;
 					graph_v_of_v_idealID_add_edge(output_graph, vertexID_old_to_new[i], vertexID_old_to_new[j], ec);
 				}
 			}
