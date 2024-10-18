@@ -120,6 +120,11 @@ int graph_hash_of_mixed_weighted_binary_operations_insert(std::vector<std::pair<
 	insert <key, load> into vector, if key is already inside, then load is updated; time complexity O(log n + size()-position ), which is O(n) in the worst case, as
 	the time complexity of inserting an element into a vector is the number of elements behind this element*/
 
+	/*return the inserted position;
+	
+	insert <key, load> into vector, if key is already inside, then load is updated; time complexity O(log n + size()-position ), which is O(n) in the worst case, as
+	the time complexity of inserting an element into a vector is the number of elements behind this element*/
+
 	int left = 0, right = input_vector.size() - 1;
 
 	while (left <= right) // it will be skept when input_vector.size() == 0

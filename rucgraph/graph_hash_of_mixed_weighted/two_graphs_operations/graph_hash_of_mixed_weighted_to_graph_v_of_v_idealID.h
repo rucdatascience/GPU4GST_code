@@ -15,6 +15,7 @@ graph_v_of_v_idealID graph_hash_of_mixed_weighted_to_graph_v_of_v_idealID(graph_
 				int j = it2->first;
 				if (i < j) {
 					int ec = it2->second;
+					cout<<i<<" "<<j<<" "<<ec<<endl;
 					graph_v_of_v_idealID_add_edge(output_graph, vertexID_old_to_new[i], vertexID_old_to_new[j], ec);
 				}
 			}

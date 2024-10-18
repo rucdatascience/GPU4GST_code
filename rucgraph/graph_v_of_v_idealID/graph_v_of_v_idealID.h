@@ -75,7 +75,7 @@ inline void graph_v_of_v_idealID_add_edge(graph_v_of_v_idealID& g, int e1, int e
 		 O(log n) When edge already exists in graph
 		 O(n) When edge doesn't exist in graph
 	 */
-
+	
 	graph_hash_of_mixed_weighted_binary_operations_insert(g[e1], e2, ec);
 	graph_hash_of_mixed_weighted_binary_operations_insert(g[e2], e1, ec);
 
