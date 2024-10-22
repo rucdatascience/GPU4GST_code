@@ -117,7 +117,7 @@ __global__ void Relax_1(queue_element *Queue_dev, int *queue_size, queue_element
 				tree[u * width + p].u = v;
 				// enqueue operation
 				int check = atomicCAS(&tree[u * width + p].update, 0, 1);
-				if (check == 0 && lb0[u] + grow_tree_cost <= (*best))
+				if (check == 0 && lb0[u] + grow_tree_cost < (*best))
 				{
 					int pos = atomicAdd(new_queue_size, 1);
 					new_queue_device[pos].v = u;
@@ -866,7 +866,7 @@ graph_hash_of_mixed_weighted DPBF_GPU_T(node **host_tree, node *host_tree_one_d,
 	time_process += runningtime;
 	std ::cout << "mark and copy cost time " << runningtime << std ::endl;
 	begin = std::chrono::high_resolution_clock::now();
-	while (*queue_size != 0 && r < 3)
+	while (*queue_size != 0 && r < 4)
 	{
 		std::cout << "round " << r++ << " queue size " << *queue_size << std::endl;
 		Relax_1<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, queue_size, new_queue_device, new_queue_size, non_overlapped_group_sets_IDs_gpu,
@@ -934,7 +934,7 @@ graph_hash_of_mixed_weighted DPBF_GPU_T(node **host_tree, node *host_tree_one_d,
 		while (*queue_size != 0 && r < 20)
 		{
 			process += *queue_size;
-			std::cout << "round " << r++ << " queue size " << *queue_size <<" best "<<*best<< std::endl;
+		//	std::cout << "round " << r++ << " queue size " << *queue_size <<" best "<<*best<< std::endl;
 			// cudaMemset(d_histogram, 0, 100 * sizeof(int));
 			// get_tree_weight<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, tree_weight, best,d_histogram,*queue_size);
 			// cudaDeviceSynchronize();
