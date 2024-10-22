@@ -113,12 +113,12 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu()
 	graph_hash_of_mixed_weighted_read_for_inquire(data_name+".g5", inquire);
 	}*/
 	string data_name = "Amazon";
-	read_input_graph(data_name + "_in", v_instance_graph, community);
+	read_input_graph(data_name + ".in", v_instance_graph, community);
 	cout << "read input complete" << endl;
 	read_Group(data_name + ".g", v_instance_graph, v_generated_group_graph);
 
 	cout << "read group complete " << v_generated_group_graph.size() << endl;
-	read_inquire(data_name + ".g3", inquire);
+	read_inquire(data_name + ".g7", inquire);
 
 	iteration_times = inquire.size();
 	cout << "inquires size " << inquire.size()<<" G = "<<inquire[0].size() << endl;
@@ -140,16 +140,16 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu()
 	non_overlapped_group_sets s = graph_v_of_v_idealID_DPBF_non_overlapped_group_sets_gpu(group_sets_ID_range);
 	/*iteration*/
 	cout << "------------------------------------------------------------" << endl;
-	for (int i =0; i < 100; i++)
+	int rounds = 0;
+	for (int i =88; i < 89; i++)
 	{
-
+			rounds++;
 		cout << "iteration " << i << endl;
 
 		// generated_group_graph.clear();
 		generated_group_vertices.clear();
 		for (size_t j = 0; j < inquire[i].size(); j++)
 		{	
-			cout<<"find "<<inquire[i][j] - V + 1<<endl;
 			generated_group_vertices.insert(inquire[i][j] - V);
 		}
 
@@ -158,21 +158,21 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu()
 */
 
 		std::cout << "get inquire complete" << std::endl;
-		if (1)
+		if (0)
 		{
 			int RAM;
 			auto begin = std::chrono::high_resolution_clock::now();
 			graph_hash_of_mixed_weighted solu = graph_v_of_v_idealID_PrunedDPPlusPlus(v_instance_graph, v_generated_group_graph, generated_group_vertices, 1, RAM, pointer2);
 			auto end = std::chrono::high_resolution_clock::now();
 			double runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
-			time_PrunedDPPlusPlus_avg = time_PrunedDPPlusPlus_avg + (double)runningtime / iteration_times;
+			time_PrunedDPPlusPlus_avg += runningtime ;
 
 			// graph_hash_of_mixed_weighted_print(solu);
 
 			int cost = graph_hash_of_mixed_weighted_sum_of_ec(solu);
 			solution_cost_PrunedDPPlusPlus_sum = solution_cost_PrunedDPPlusPlus_sum + cost;
 			cout << "PLus PLus " << cost << " time " << runningtime << endl;
-				
+					graph_hash_of_mixed_weighted_print(solu);
 			if (!this_is_a_feasible_solution_gpu(solu, v_generated_group_graph, generated_group_vertices))
 			{
 				cout << "Error: graph_v_of_v_idealID_DPBF_only_ec is not feasible!" << endl;
@@ -208,7 +208,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu()
 			graph_hash_of_mixed_weighted solu = DPBF_GPU(host_tree, host_tree_one_d, csr_graph, generated_group_vertices, v_generated_group_graph, v_instance_graph, pointer1, real_cost, belong, c_size, s, &runningtime);
 			auto end = std::chrono::high_resolution_clock::now();
 			runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9;
-			time_GPU_one_avg += (double)runningtime / iteration_times;
+			time_GPU_one_avg += runningtime;
 
 			// graph_hash_of_mixed_weighted_print(solu);
 
@@ -262,7 +262,7 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu()
 
 			auto end = std::chrono::high_resolution_clock::now();
 		 runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9;
-			time_GPU_multi_avg += (double)runningtime / iteration_times;
+			time_GPU_multi_avg += runningtime;
 			graph_hash_of_mixed_weighted solu;
 
 			int cost = graph_hash_of_mixed_weighted_sum_of_ec(solutions[0]);
@@ -281,10 +281,11 @@ void test_graph_v_of_v_idealID_DPBF_only_ec_gpu()
 	cudaFree(csr_graph.all_edge);
 	cudaFree(csr_graph.all_pointer);
 	cudaFree(csr_graph.all_edge_weight);
-	cout << "solution_cost_GPU_one_sum=" << solution_cost_GPU_sum << endl;
-	cout << "solution_cost_GPU_multi_sum=" << solution_cost_multi_GPU_sum << endl;
-
-	cout << "time_GPU_one_avg=" << time_GPU_one_avg << "s" << endl;
-	cout << "time_GPU_multi_avg=" << time_GPU_multi_avg << "s" << endl;
+	cout << "solution_cost_CPU  _sum=" << solution_cost_PrunedDPPlusPlus_sum << endl;
+	cout << "solution_cost_GPU_1_sum=" << solution_cost_GPU_sum << endl;
+	cout << "solution_cost_GPU_2_sum=" << solution_cost_multi_GPU_sum << endl;
+	cout << "time_CPU  _avg=" << time_PrunedDPPlusPlus_avg / rounds<< "s" << endl;
+	cout << "time_GPU_1_avg=" << time_GPU_one_avg / rounds<< "s" << endl;
+	cout << "time_GPU_2_avg=" << time_GPU_multi_avg/ rounds << "s" << endl;
 
 }

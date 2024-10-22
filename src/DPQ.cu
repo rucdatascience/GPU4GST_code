@@ -3,6 +3,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/sort.h>
 #include <omp.h>
+#include <cub/device/device_histogram.cuh>
 using namespace std;
 // use one label lowerbound
 /*this is the DPBF algorithm in Ding, Bolin, et al. "Finding top-k min-cost connected trees in databases." 2007 IEEE 23rd International Conference on Data Engineering. IEEE, 2007.
@@ -18,16 +19,16 @@ typedef struct queue_element
 } queue_element;
 
 std::vector<int> non_overlapped_group_sets_IDs_pointer_host, non_overlapped_group_sets_IDs;
-void set_max_ID(graph_v_of_v_idealID &group_graph, std::unordered_set<int> &cumpulsory_group_vertices, node **host_tree)
+void set_max_ID(graph_v_of_v_idealID &group_graph, std::unordered_set<int> &cumpulsory_group_vertices, node **host_tree, std::unordered_set<int> &contain_group_vertices)
 {
 	int bit_num = 1, v;
 	for (auto it = cumpulsory_group_vertices.begin(); it != cumpulsory_group_vertices.end(); it++, bit_num <<= 1)
 	{
-
 		for (size_t to = 0; to < group_graph[*it].size(); to++)
 		{
 			v = group_graph[*it][to].first;
 			host_tree[v][bit_num].cost = 0;
+			contain_group_vertices.insert(v);
 		}
 	}
 }
@@ -160,6 +161,16 @@ __global__ void Relax_1(queue_element *Queue_dev, int *queue_size, queue_element
 		}
 	}
 }
+__global__ void get_tree_weight(queue_element *new_queue_device, int *tree_weight,int *best,int *d_histogram, int N)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < N)
+	{
+		tree_weight[idx] = new_queue_device[idx].cost;
+		int bin=*best/10;
+		atomicAdd(&d_histogram[new_queue_device[idx].cost/bin],1);
+	}
+}
 __global__ void pre_scan(queue_element *new_queue_device, int *new_queue_size, queue_element *queue_device, int *queue_size, int *best, int up, double percent, int *check, queue_element *mid_queue, int *mid_queue_size)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -241,7 +252,7 @@ __global__ void Relax(queue_element *Queue_dev, int *queue_size, queue_element *
 			}
 			atomicMin(best, new_best);
 		}
-		if (row_node_v[p].cost >= (*best) / 2)
+		if (row_node_v[p].cost > (*best) / 2)
 		{
 			return;
 		}
@@ -408,11 +419,11 @@ __global__ void dis0_init(queue_element *dis_queue, queue_element *new_dis_queue
 			if (new_w < old)
 			{
 				row_v[p].u = u;
-					row_v[p].type = 1;
+				row_v[p].type = 1;
 				int check = atomicCAS(&row_v[p].update, 0, 1);
 				if (check == 0)
 				{
-					
+
 					int pos = atomicAdd(new_queue_size, 1);
 					new_dis_queue[pos] = {v, p};
 				}
@@ -421,24 +432,34 @@ __global__ void dis0_init(queue_element *dis_queue, queue_element *new_dis_queue
 	}
 }
 
-__global__ void dis0_init_1(queue_element *dis_queue, queue_element *new_dis_queue, node *tree, int *queue_size, int *new_queue_size, int *edge, int *edge_cost, int *pointer, int width)
+__global__ void dis0_init_1(queue_element *dis_queue, queue_element *new_dis_queue, node *tree, int *dis_queue_size, int *new_queue_size, int *edge, int *edge_cost, int *pointer, int width, int *best)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (idx < *queue_size)
+	if (idx < *dis_queue_size)
 	{
 		int u = dis_queue[idx].v, p = dis_queue[idx].p;
 		tree[u * width + p].update = 0;
+		if (tree[u * width + p].cost > *best)
+		{
+			return;
+		}
+
 		for (int i = pointer[u]; i < pointer[u + 1]; i++)
 		{
 			int v = edge[i];
+			int vp = v * width + p;
 			int new_w = tree[u * width + p].cost + edge_cost[i];
-			int old = atomicMin(&tree[v * width + p].cost, new_w);
-			if (new_w < old)
+			if (new_w > *best)
 			{
-				tree[v * width + p].u = u;
-				tree[v * width + p].type = 1;
-				int check = atomicCAS(&tree[v * width + p].update, 0, 1);
+				continue;
+			}
+			int old = atomicMin(&tree[vp].cost, new_w);
+			if (new_w <= old)
+			{
+				tree[vp].u = u;
+				tree[vp].type = 1;
+				int check = atomicCAS(&tree[vp].update, 0, 1);
 				if (check == 0)
 				{
 					int pos = atomicAdd(new_queue_size, 1);
@@ -446,6 +467,34 @@ __global__ void dis0_init_1(queue_element *dis_queue, queue_element *new_dis_que
 				}
 			}
 		}
+	}
+}
+__global__ void fast_merge(int N, node *tree, int width, int *best, queue_element *device_queue)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (idx < N)
+	{
+		int u = device_queue[idx].v, p = device_queue[idx].p;
+		int line = u * width;
+		for (size_t s = 1; s < width; s++)
+		{
+			for (size_t s1 = s & (s - 1); s1; s1 = (s1 - 1) & s)
+			{
+				tree[line + s].cost = thrust::min(tree[line + s1].cost + tree[line + s - s1].cost, tree[line + s].cost);
+			}
+		}
+		atomicMin(best, tree[line + width - 1].cost);
+	}
+}
+__global__ void reset_update(int N, node *tree, int width, queue_element *device_queue, int val)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (idx < N)
+	{
+		int u = device_queue[idx].v, p = device_queue[idx].p;
+		tree[u * width + p].update = val;
 	}
 }
 
@@ -478,6 +527,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 	cudaMallocManaged((void **)&can_find, sizeof(int));
 	cudaMallocManaged((void **)&best, sizeof(int));
 	cudaMallocManaged((void **)&lb0, N * sizeof(int));
+
 	cudaMemset(lb0, 0, N * sizeof(int));
 	cudaMallocManaged((void **)&queue_device, problem_size * sizeof(queue_element));
 	cudaMallocManaged((void **)&new_queue_device, problem_size * sizeof(queue_element));
@@ -496,7 +546,9 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 	time_process += runningtime;
 	std ::cout << "main allocate cost time " << runningtime << std ::endl;
 	*best = inf;
-	begin = std::chrono::high_resolution_clock::now();
+
+	int *host_lb, *max_IDs;
+	host_lb = new int[N], max_IDs = new int[N];
 	/* 	for (size_t i = 0; i < G; i++)
 		{
 			for (size_t j = 0; j < N; j++)
@@ -515,16 +567,19 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 
 		cudaMemcpy2D(dis, pitch_dis, host_dis, N * sizeof(int), N * sizeof(int), G, cudaMemcpyHostToDevice); */
 	*queue_size = 0;
-	set_max_ID(group_graph, cumpulsory_group_vertices, host_tree);
-	for (int v = 0; v < N; v++)
+	std::unordered_set<int> contain_group_vertices;
+	set_max_ID(group_graph, cumpulsory_group_vertices, host_tree, contain_group_vertices);
+	int v;
+	for (auto it = contain_group_vertices.begin(); it != contain_group_vertices.end(); it++)
 	{
+		v = *it;
 		host_tree[v][0].cost = 0;
 		int group_set_ID_v = get_max(v, host_tree, width); /*time complexity: O(|Gamma|)*/
+		max_IDs[v] = group_set_ID_v;
 		for (size_t i = 1; i <= group_set_ID_v; i <<= 1)
 		{
 			if (i & group_set_ID_v)
 			{
-
 				host_tree[v][i].cost = 0;
 				host_tree[v][i].type = 0;
 				host_queue[*queue_size].v = v;
@@ -533,13 +588,12 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 			}
 		}
 	}
-	int *host_lb;
-	host_lb = new int[N];
+
 	cudaMemcpy2D(tree, pitch_node, host_tree_one_d, width * sizeof(node), width * sizeof(node), height, cudaMemcpyHostToDevice);
 	*new_queue_size = 0;
 	cudaMemcpy(queue_device, host_queue, *queue_size * sizeof(queue_element), cudaMemcpyHostToDevice);
 	int r = 0, process = 0;
-
+	begin = std::chrono::high_resolution_clock::now();
 	while (*queue_size)
 	{
 		// std::cout << "main dis round " << r++ << " queue size " << *queue_size << std::endl;
@@ -558,6 +612,10 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 
 	one_label_lb<<<(N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(tree, pitch_node, lb0, N, width, inf, can_find);
 	cudaDeviceSynchronize();
+	end = std::chrono::high_resolution_clock::now();
+	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
+	time_process += runningtime;
+	std ::cout << "distance cost time " << runningtime << std ::endl;
 	graph_hash_of_mixed_weighted solution_tree;
 	if (*can_find == 0)
 	{
@@ -572,10 +630,6 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 	// 	cout << i << " lb: " << lb0[i] << " ";
 	// }
 	// cudaMemcpy2D(host_dis, N * sizeof(int), dis, pitch_int, N * sizeof(int), G, cudaMemcpyDeviceToHost);
-	end = std::chrono::high_resolution_clock::now();
-	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
-	time_process += runningtime;
-	std ::cout << "distance cost time " << runningtime << std ::endl;
 
 	begin = std::chrono::high_resolution_clock::now();
 	cudaMemcpy2D(host_tree_one_d, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
@@ -619,29 +673,30 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 	while (*queue_size != 0)
 	{
 		process += *queue_size;
-		std::cout << "round " << r++ << " queue size " << *queue_size << std::endl;
-		//  cudaMemcpy(host_queue,queue_device,  *queue_size * sizeof(queue_element), cudaMemcpyDeviceToHost);
-		//  		for (size_t i = 0; i < *queue_size; i++)
-		//  		{
-		//  			std::cout << " v " <<host_queue[i].v << " p " << host_queue[i].p << "; ";
-		//  		}cout << endl;
+		// std::cout << "round " << r++ << " queue size " << *queue_size << std::endl;
+		/*std::cout << "round " << r++ << " queue size " << *queue_size << std::endl;
+		 cudaMemcpy(host_queue,queue_device,  *queue_size * sizeof(queue_element), cudaMemcpyDeviceToHost);
+				for (size_t i = 0; i < *queue_size; i++)
+				{
+					std::cout << " v " <<host_queue[i].v << " p " << host_queue[i].p << "; ";
+				}cout << endl;*/
 
 		Relax<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, queue_size, new_queue_device, new_queue_size, non_overlapped_group_sets_IDs_gpu,
 																							 non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, pitch_node, tree, inf, best, group_sets_ID_range, lb0);
 		// thrust::sort(queue_device, queue_device + *queue_size);
 		cudaDeviceSynchronize();
-		// cudaMemcpy2D(host_tree_one_d, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
-		// 		for (size_t i = 0; i < N; i++)
-		// 				{
-		// 					cout << i << " ";
-		// 					for (size_t j = 1; j <= group_sets_ID_range; j++)
-		// 					{
-		// 						cout << host_tree[i][j].cost << " ";
-		// 					}
-		// 					cout << endl;
-		// 				}
-
-		// cout << "new size = " << *new_queue_size << endl;
+		/*cudaMemcpy2D(host_tree_one_d, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
+				for (size_t i = 0; i < N; i++)
+						{
+							cout << i << " ";
+							for (size_t j = 1; j <= group_sets_ID_range; j++)
+							{
+								cout << host_tree[i][j].cost << " ";
+							}
+							cout << endl;
+						}
+		cout << "best = " << *best << endl;
+		// cout << "new size = " << *new_queue_size << endl;*/
 		*queue_size = *new_queue_size;
 		*new_queue_size = 0;
 		std::swap(queue_device, new_queue_device);
@@ -708,6 +763,7 @@ graph_hash_of_mixed_weighted DPBF_GPU(node **host_tree, node *host_tree_one_d, C
 	cudaFree(tree);
 	cudaFree(queue_device);
 	cudaFree(new_queue_device);
+	cudaFree(lb0);
 	return solution_tree;
 }
 graph_hash_of_mixed_weighted DPBF_GPU_T(node **host_tree, node *host_tree_one_d, CSR_graph &graph, std::unordered_set<int> &cumpulsory_group_vertices, graph_v_of_v_idealID &group_graph, graph_v_of_v_idealID &input_graph, int *pointer1, int *real_cost, int *belong, std::vector<std::vector<int>> &community, non_overlapped_group_sets s, double *rt)
@@ -717,11 +773,11 @@ graph_hash_of_mixed_weighted DPBF_GPU_T(node **host_tree, node *host_tree_one_d,
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto pend = std::chrono::high_resolution_clock::now();
 	int width, height, r = 0, process = 0, N = graph.V;
-	int *queue_size, *new_queue_size, *best, *mid_queue_size, *lb0, *non_overlapped_group_sets_IDs_gpu, *non_overlapped_group_sets_IDs_pointer_device, *can_find;
-	int *all_pointer, *all_edge, *edge_cost, *new_bfs_queue, *bfs_queue, *bfs_queue_size, *new_bfs_queue_size, *visited, mark_best;
-	int *far_queue_size;
+	int *queue_size, *new_queue_size, *best, *mid_queue_size, *lb0, *dis_queue_size, *new_dis_queue_size, *non_overlapped_group_sets_IDs_gpu, *non_overlapped_group_sets_IDs_pointer_device, *can_find;
+	int *all_pointer, *all_edge, *edge_cost, *visited, mark_best;
+	int *far_queue_size, *d_histogram, *tree_weight;
 	node *tree;
-	queue_element *queue_device, *new_queue_device, *mid_queue_device;
+	queue_element *queue_device, *new_queue_device, *mid_queue_device, *new_dis_queue, *dis_queue;
 	queue_element *host_queue;
 	double time_process = 0;
 	int G = cumpulsory_group_vertices.size();
@@ -730,16 +786,19 @@ graph_hash_of_mixed_weighted DPBF_GPU_T(node **host_tree, node *host_tree_one_d,
 	long long unsigned int problem_size = N * pow(2, cumpulsory_group_vertices.size());
 	int *queue_size_p, *new_queue_size_p;
 	queue_element *queue_device_p, *new_queue_device_p;
+	cout << "N*G= " << N * G << endl;
 	cudaMallocManaged((void **)&queue_size_p, sizeof(int));
 	cudaMallocManaged((void **)&new_queue_size_p, sizeof(int));
 	cudaMallocManaged((void **)&far_queue_size, sizeof(int));
 	cudaMallocManaged((void **)&can_find, sizeof(int));
-	cudaMallocManaged((void **)&queue_device_p, problem_size * sizeof(queue_element));
-	cudaMallocManaged((void **)&new_queue_device_p, problem_size * sizeof(queue_element));
-	cudaMallocManaged((void **)&bfs_queue, N * sizeof(int));
-	cudaMallocManaged((void **)&new_bfs_queue, N * sizeof(int));
-	cudaMallocManaged((void **)&bfs_queue_size, sizeof(int));
-	cudaMallocManaged((void **)&new_bfs_queue_size, sizeof(int));
+	cudaMallocManaged((void **)&d_histogram, 100 * sizeof(int));
+	// cudaMallocManaged((void **)&queue_device_p, problem_size * sizeof(queue_element));
+	// cudaMallocManaged((void **)&new_queue_device_p, problem_size * sizeof(queue_element));
+	cudaMallocManaged((void **)&tree_weight, problem_size * sizeof(int));
+	cudaMallocManaged((void **)&dis_queue, N * G * sizeof(queue_element));
+	cudaMallocManaged((void **)&new_dis_queue, N * G * sizeof(queue_element));
+	cudaMallocManaged((void **)&dis_queue_size, sizeof(int));
+	cudaMallocManaged((void **)&new_dis_queue_size, sizeof(int));
 	cudaMallocManaged((void **)&queue_size, sizeof(int));
 	cudaMallocManaged((void **)&new_queue_size, sizeof(int));
 	cudaMallocManaged((void **)&mid_queue_size, sizeof(int));
@@ -758,246 +817,143 @@ graph_hash_of_mixed_weighted DPBF_GPU_T(node **host_tree, node *host_tree_one_d,
 	width = group_sets_ID_range + 1, height = N;
 	host_queue = new queue_element[problem_size];
 	cudaMallocManaged(&tree, width * height * sizeof(node));
-
+	int *host_lb, *max_IDs;
+	// host_lb = new int[N];
+	max_IDs = new int[N];
 	// std::cout << "pitch " << pitch_node << " " << " width " << width << std::endl;
 	auto end = std::chrono::high_resolution_clock::now();
 	double runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
 	time_process += runningtime;
 	std ::cout << "main allocate cost time " << runningtime << std ::endl;
-	size_t avail(0); // 可用显存
-	size_t total(0); // 总显存
+	size_t avail(0), total(0);
 	cudaMemGetInfo(&avail, &total);
 	std ::cout << "avail " << avail / 1024 / 1024 / 1024 << " total " << total / 1024 / 1024 / 1024 << std ::endl;
-	*best = inf;
+	*best = inf, *queue_size = 0, *dis_queue_size = 0, *new_queue_size = 0, *new_dis_queue_size = 0;
 	begin = std::chrono::high_resolution_clock::now();
-	*queue_size = 0;
-
-	/*
-	int minimum_group = *cumpulsory_group_vertices.begin();
-	for (const auto &key : cumpulsory_group_vertices)
+	std::unordered_set<int> contain_group_vertices;
+	set_max_ID(group_graph, cumpulsory_group_vertices, host_tree, contain_group_vertices);
+	graph_hash_of_mixed_weighted solution_tree;
+	for (auto it = contain_group_vertices.begin(); it != contain_group_vertices.end(); it++)
 	{
-		if (group_graph[key].size() < group_graph[minimum_group].size())
-		{
-			minimum_group = key;
-		}
-	}
-	*bfs_queue_size = 0;
-	*queue_size_p = 0;
-	*new_bfs_queue_size = 0;
-	for (size_t i = 0; i < group_graph[minimum_group].size(); i++)
-	{
-		bfs_queue[*bfs_queue_size] = group_graph[minimum_group][i].first;
-		*bfs_queue_size += 1;
-	}
-
-	for (size_t i = 0; i < 1; i++)
-	{
-		std ::cout << std ::endl;
-		BFS<<<(*bfs_queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(bfs_queue, bfs_queue_size, new_bfs_queue, new_bfs_queue_size, all_edge, visited, all_pointer);
-		cudaDeviceSynchronize();
-		*bfs_queue_size = *new_bfs_queue_size;
-		*new_bfs_queue_size = 0;
-		std::swap(bfs_queue, new_bfs_queue);
-	}*/
-	set_max_ID(group_graph, cumpulsory_group_vertices, host_tree);
-
-	for (int v = 0; v < N; v++)
-	{
+		int v = *it;
 		host_tree[v][0].cost = 0;
 		int group_set_ID_v = get_max(v, host_tree, width); /*time complexity: O(|Gamma|)*/
-		for (size_t i = 1; i <= group_set_ID_v; i <<= 1)
+		max_IDs[v] = group_set_ID_v;
+		for (size_t i = 1; i <= group_set_ID_v; i++)
 		{
-			if (i & group_set_ID_v)
+			if ((i | group_set_ID_v) == group_set_ID_v)
 			{
 				host_tree[v][i].cost = 0;
 				host_tree[v][i].type = 0;
-				host_queue[*queue_size].v = v;
-				host_queue[*queue_size].p = i;
+				queue_device[*queue_size].v = v;
+				queue_device[*queue_size].p = i;
 				*queue_size += 1;
 			}
 		}
+		for (size_t j = 1; j <= group_set_ID_v; j <<= 1)
+		{
+			if (j & group_set_ID_v)
+			{
+				dis_queue[*dis_queue_size].v = v;
+				dis_queue[*dis_queue_size].p = j;
+				*dis_queue_size += 1;
+			}
+		}
 	}
-	int *host_lb;
-	host_lb = new int[N];
 	cudaMemcpy(tree, host_tree_one_d, width * sizeof(node) * height, cudaMemcpyHostToDevice);
-	*new_queue_size = 0;
-	cudaMemcpy(queue_device, host_queue, *queue_size * sizeof(queue_element), cudaMemcpyHostToDevice);
-
-	while (*queue_size)
+	end = std::chrono::high_resolution_clock::now();
+	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
+	time_process += runningtime;
+	std ::cout << "mark and copy cost time " << runningtime << std ::endl;
+	begin = std::chrono::high_resolution_clock::now();
+	while (*queue_size != 0 && r < 3)
 	{
-		// std::cout << "dis round " << r++ << " queue size " << *queue_size << std::endl;
-		dis0_init_1<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, new_queue_device, tree, queue_size, new_queue_size, all_edge, edge_cost, all_pointer, width);
+		std::cout << "round " << r++ << " queue size " << *queue_size << std::endl;
+		Relax_1<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, queue_size, new_queue_device, new_queue_size, non_overlapped_group_sets_IDs_gpu,
+																							   non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, width, tree, inf, best, group_sets_ID_range, lb0);
 		cudaDeviceSynchronize();
 		*queue_size = *new_queue_size;
 		*new_queue_size = 0;
 		std::swap(queue_device, new_queue_device);
 	}
-	*can_find = 0;
-	one_label_lb_1<<<(N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(tree, width, lb0, N, width, inf, can_find);
-	cudaDeviceSynchronize();
-	graph_hash_of_mixed_weighted solution_tree;
-	if (*can_find == 0)
-	{
-		cout << "can not find a solution" << endl;
-		return solution_tree;
-	}
-	cudaMemcpy(host_lb, lb0, N * sizeof(int), cudaMemcpyDeviceToHost);
-	// for (size_t i = 0; i < N; i++)
-	// {
-	// 	cout << i << " lb: " << lb0[i] << " ";
-	// }
-	// cout<<endl;
+	cout << "pre rounds get best " << *best << endl;
 	end = std::chrono::high_resolution_clock::now();
 	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
 	time_process += runningtime;
-	std ::cout << "distance cost time " << runningtime << std ::endl;
-	begin = std::chrono::high_resolution_clock::now();
-	cudaMemcpy(host_tree_one_d, tree, width * sizeof(node) * height, cudaMemcpyDeviceToHost);
-	end = std::chrono::high_resolution_clock::now();
-	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
-
-	std ::cout << "till copy1 cost time " << runningtime << std ::endl;
-	*queue_size = 0, *new_queue_size = 0;
-	for (int v = 0; v < N; v++)
+	std ::cout << "pre rounds cost time " << runningtime << std ::endl;
+	if (*queue_size != 0)
 	{
-		// int dev = belong[v];
-		host_tree[v][0].cost = 0;
-
-		int group_set_ID_v = get_max(v, host_tree, width); /*time complexity: O(|Gamma|)*/
-		for (int p = 1; p <= group_sets_ID_range; p++)
-		{ // p is non-empty; time complexity: O(2^|Gamma|) //get all its subset ,which is required in next merge and grow steps
-			host_tree[v][p].update = 0;
-
-			// host_tree[v][p].cost = inf;
-			if ((p | group_set_ID_v) == group_set_ID_v)
-			{ // p represents a non-empty group set inside group_set_ID_v, including group_set_ID_v
-				/*T(v,p)*/
-				host_tree[v][p].cost = 0;
-				host_tree[v][p].type = 0;
-
-				// queue_device_p[queue_size_p[dev]].v = v;
-				// queue_device_p[queue_size_p[dev]].p = p;
-				// queue_size_p[dev] += 1;
-
-				if (visited[v] == 1)
-				{
-					queue_device_p[*queue_size_p].v = v;
-					queue_device_p[*queue_size_p].p = p;
-					*queue_size_p += 1;
-					queue_device[*queue_size].v = v;
-					queue_device[*queue_size].p = p;
-					*queue_size += 1;
-				}
-				else
-				{
-					queue_device[*queue_size].v = v;
-					queue_device[*queue_size].p = p;
-					*queue_size += 1;
-				}
-			}
-		}
-	}
-end = std::chrono::high_resolution_clock::now();
-	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
-
-	std ::cout << "till mark cost time " << runningtime << std ::endl;
-	cudaMemcpy(tree, host_tree_one_d, width * sizeof(node) * height, cudaMemcpyHostToDevice);
-	end = std::chrono::high_resolution_clock::now();
-	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
-
-	std ::cout << "till copy2cost time " << runningtime << std ::endl;
-	// std::cout << "queue size init " << *queue_size << std::endl;
-	// std::cout << "queue init " << std::endl;
-	/* 	for (size_t i = 0; i < *queue_size; i++)
+		r = 0;
+		reset_update<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(*queue_size, tree, width, queue_device, 0);
+		begin = std::chrono::high_resolution_clock::now();
+		while (*dis_queue_size != 0)
 		{
-			std::cout << " v " << queue_device[i].v << " p " << queue_device[i].p << "; ";
-		} */
-
-	r = 0;
-	int up = 125932;
-	double percent = 0.25;
-
-	
-	// || *queue_size_p != 0
-	while (*queue_size != 0 && r < 20)
-	{
-		process += *queue_size;
-		 std::cout << "round " << r++ << " queue size " << *queue_size << std::endl;
-		/*cudaMemcpy(host_queue,queue_device,  *queue_size * sizeof(queue_element), cudaMemcpyDeviceToHost);
-				for (size_t i = 0; i < *queue_size; i++)
-				{
-					std::cout << " v " <<host_queue[i].v << " p " << host_queue[i].p << "; ";
-				}cout << endl;*/
-
-		Relax_1<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, queue_size, new_queue_device, new_queue_size, non_overlapped_group_sets_IDs_gpu,
-																							   non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, width, tree, inf, best, group_sets_ID_range, lb0);
-
-		// if (*queue_size_p)
-		// {
-		// 	Relax_1<<<(*queue_size_p + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device_p, queue_size_p, new_queue_device_p, new_queue_size_p, non_overlapped_group_sets_IDs_gpu,
-		// 																							 non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, width, tree, inf, best, group_sets_ID_range, lb0);
-		// }
-
-		cudaDeviceSynchronize();
-		cudaMemset(visited, 0, *new_queue_size * sizeof(int));
-		if (*new_queue_size > up)
-		{ // 如果新队列的长度大于运行能力 则运行近似优先
-			//	cout << *new_queue_size << "> up" << endl;
-			*queue_size = 0;
-			pre_scan<<<(*new_queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(new_queue_device, new_queue_size, queue_device, queue_size, best, up, percent, visited, mid_queue_device, mid_queue_size);
+			// std::cout << "dis round " << r++ << " queue size " << *dis_queue_size << std::endl;
+			dis0_init_1<<<(*dis_queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(dis_queue, new_dis_queue, tree, dis_queue_size, new_dis_queue_size, all_edge, edge_cost, all_pointer, width, best);
 			cudaDeviceSynchronize();
-			if (*queue_size < up)
-			{
-				cout << *queue_size << "< up need fill up , percent = " << percent << "best = " << *best << endl;
-				// 经过pre_scan得到的queuesize<up 说明筛出来的太少了 要从远堆中补充得到满队 下次要增大门槛
-				int need = up - *queue_size;
-				cudaMemcpy(queue_device + *queue_size, mid_queue_device + *mid_queue_size - need, need * sizeof(queue_element), cudaMemcpyDeviceToDevice);
-				*mid_queue_size -= need;
-				percent = 0.5*double(need)/up;
-				*queue_size = up;
-				
-				// percent=min(percent+double(need)/double(up),1.0);
-			}
-			else
-			{ // 经过pre_scan得到的queuesize>up 说明筛出来的太多了 下次要减少门槛
-				cout << *queue_size << "> up need cut dow, percent = " << percent << " best = " << *best << endl;
-				double cut = *queue_size-up;
-				percent = 0.5*cut/(*queue_size);
-				*queue_size = up;
-				// cout << *queue_size << ">up" << endl;
-				
-			}
-
-			/*	cudaMemcpy2D(host_tree_one_d, width * sizeof(node), tree, pitch_node, width * sizeof(node), height, cudaMemcpyDeviceToHost);
-						for (size_t i = 0; i < N; i++)
-								{
-									cout << i << " ";
-									for (size_t j = 1; j <= group_sets_ID_range; j++)
-									{
-										cout << host_tree[i][j].cost << " ";
-									}
-									cout << endl;
-								}*/
-
-			// cout << "new size = " << *new_queue_size << endl;
-
-			*new_queue_size = *mid_queue_size;
-			std::swap(new_queue_device, mid_queue_device);
-			*mid_queue_size = 0;
-			// *queue_size_p = *new_queue_size_p;
-			// *new_queue_size_p = 0;
-			// std::swap(queue_device_p, new_queue_device_p);
-			// if (*queue_size_p == 0)
-			// {
-			// 	pend = std::chrono::high_resolution_clock::now();
-			// 	mark_best = *best;
-			// 	*rt = runningtime;
-			// }
-			cout << "near size = " << *queue_size << endl;
-			cout << "far size = " << *new_queue_size << endl;
+			*dis_queue_size = *new_dis_queue_size;
+			*new_dis_queue_size = 0;
+			std::swap(dis_queue, new_dis_queue);
 		}
-		else
+
+		*can_find = 0;
+		one_label_lb_1<<<(N + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(tree, width, lb0, N, width, inf, can_find);
+		cudaDeviceSynchronize();
+
+		if (*can_find == 0)
 		{
+			cout << "can not find a solution" << endl;
+			return solution_tree;
+		}
+		// for (size_t i = 0; i < N; i++)
+		// {
+		// 	cout << i << " lb: " << lb0[i] << " ";
+		// }
+		// cout<<endl;
+		end = std::chrono::high_resolution_clock::now();
+		runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
+		time_process += runningtime;
+		std ::cout << "distance cost time " << runningtime << std ::endl;
+		begin = std::chrono::high_resolution_clock::now();
+		// std::cout << "queue size init " << *queue_size << std::endl;
+		// std::cout << "queue init " << std::endl;
+		/* 	for (size_t i = 0; i < *queue_size; i++)
+			{
+				std::cout << " v " << queue_device[i].v << " p " << queue_device[i].p << "; ";
+			} */
+
+		r = 0;
+		int up = 125932, num_levels = 11; // e.g., 7       (seven level boundaries for six bins)
+		int lower_level = 0;			  // e.g., 0.0     (lower sample value boundary of lowest bin)
+		int upper_level = *best;		  // e.g., 12.0    (upper sample value boundary of upper bin);
+		double percent = 0.25;
+		begin = std::chrono::high_resolution_clock::now();
+		void *d_temp_storage = NULL;
+		size_t temp_storage_bytes = 0;
+		int host_histogram[15];
+		while (*queue_size != 0 && r < 20)
+		{
+			process += *queue_size;
+			std::cout << "round " << r++ << " queue size " << *queue_size <<" best "<<*best<< std::endl;
+			// cudaMemset(d_histogram, 0, 100 * sizeof(int));
+			// get_tree_weight<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, tree_weight, best,d_histogram,*queue_size);
+			// cudaDeviceSynchronize();
+			// for (size_t i = 0; i < 10; i++)
+			// {
+			// 	cout << "part " << i << " " << d_histogram[i] << "  ";
+			// }
+			// cudaFree(d_temp_storage);
+			// cout << endl;
+			/*cudaMemcpy(host_queue,queue_device,  *queue_size * sizeof(queue_element), cudaMemcpyDeviceToHost);
+					for (size_t i = 0; i < *queue_size; i++)
+					{
+						std::cout << " v " <<host_queue[i].v << " p " << host_queue[i].p << "; ";
+					}cout << endl;*/
+
+			Relax_1<<<(*queue_size + THREAD_PER_BLOCK - 1) / THREAD_PER_BLOCK, THREAD_PER_BLOCK>>>(queue_device, queue_size, new_queue_device, new_queue_size, non_overlapped_group_sets_IDs_gpu,
+																								   non_overlapped_group_sets_IDs_pointer_device, all_edge, edge_cost, all_pointer, width, tree, inf, best, group_sets_ID_range, lb0);
+			cudaDeviceSynchronize();
+			
 			*queue_size = *new_queue_size;
 			*new_queue_size = 0;
 			std::swap(queue_device, new_queue_device);
@@ -1074,9 +1030,9 @@ end = std::chrono::high_resolution_clock::now();
 	cudaFree(queue_device);
 	cudaFree(new_queue_device);
 	cudaFree(mid_queue_device);
-	cudaFree(bfs_queue);
-	cudaFree(new_bfs_queue);
-		end = std::chrono::high_resolution_clock::now();
+	cudaFree(dis_queue);
+	cudaFree(new_dis_queue);
+	end = std::chrono::high_resolution_clock::now();
 	runningtime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1e9; // s
 
 	std ::cout << "form tree cost time " << runningtime << std ::endl;

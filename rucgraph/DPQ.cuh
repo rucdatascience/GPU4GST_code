@@ -45,7 +45,7 @@ typedef struct non_overlapped_group_sets{
 	std::vector<int> non_overlapped_group_sets_IDs_pointer_host, non_overlapped_group_sets_IDs;
 	int length;
 }non_overlapped_group_sets;
-const int inf = 102400000; 
+const int inf = 10000; 
 typedef struct node
 {
 	int update = 0;
